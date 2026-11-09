@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administration — Meet Zoe</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-app">
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="admin.html" aria-label="Meet Zoe, administration">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <div class="compte">
+        <a class="lien" href="espace.html">Espace membre</a>
+        <span class="compte__nom" id="compte-nom"></span>
+        <button class="btn btn--ghost btn--sm" type="button" id="deconnexion">Déconnexion</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap app" id="contenu" hidden>
+    <p class="eyebrow">Administration</p>
+    <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Administration">
+      <button type="button" role="tab" data-onglet="membres" aria-selected="true">Membres</button>
+      <button type="button" role="tab" data-onglet="etablissements" aria-selected="false">Établissements</button>
+      <button type="button" role="tab" data-onglet="contacts" aria-selected="false">Demandes de contact</button>
+    </nav>
+
+    <!-- Membres -->
+    <section data-panneau="membres">
+      <div class="barre">
+        <h1>Membres</h1>
+        <label class="filtre">Afficher
+          <select id="filtre-statut">
+            <option value="en_attente">En attente de vérification</option>
+            <option value="verifie">Vérifiés</option>
+            <option value="refuse">Refusés</option>
+            <option value="suspendu">Suspendus</option>
+            <option value="">Tous</option>
+          </select>
+        </label>
+      </div>
+      <div class="tableau-zone">
+        <table class="tableau">
+          <thead><tr><th>Membre</th><th>Profil</th><th>Vérification</th><th>Statut</th><th>Rôle</th><th></th></tr></thead>
+          <tbody id="membres"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Établissements -->
+    <section data-panneau="etablissements" hidden>
+      <h1>Établissements partenaires</h1>
+      <form class="carte-form" id="form-etab">
+        <h2 id="form-etab-titre">Ajouter un établissement</h2>
+        <input type="hidden" name="etab_id">
+        <div class="form__row">
+          <label>Nom
+            <input type="text" name="nom" maxlength="120" placeholder="Ex. IFSI d'Évreux" required>
+          </label>
+          <label>Type
+            <select name="type" required>
+              <option value="ifsi">IFSI</option>
+              <option value="ifas">IFAS</option>
+              <option value="hopital">Hôpital</option>
+              <option value="ehpad">EHPAD</option>
+              <option value="fam">FAM</option>
+              <option value="foyer">Foyer de vie</option>
+              <option value="autre">Autre</option>
+            </select>
+          </label>
+        </div>
+        <div class="form__row">
+          <label>Commune
+            <input type="text" id="e-ville" required>
+          </label>
+          <label>Quota de membres
+            <input type="number" name="quota" min="0" value="50" required>
+          </label>
+        </div>
+        <div class="form__row form__row--3">
+          <label>Formule
+            <select name="formule">
+              <option value="etablissement">Établissement</option>
+              <option value="institut">Institut de formation</option>
+              <option value="reseau">Réseau d'établissements</option>
+            </select>
+          </label>
+          <label>Abonnement
+            <select name="abonnement_statut">
+              <option value="essai">Essai</option>
+              <option value="actif">Actif</option>
+              <option value="suspendu">Suspendu</option>
+              <option value="termine">Terminé</option>
+            </select>
+          </label>
+          <label>Fin d'abonnement <small>(facultatif)</small>
+            <input type="date" name="abonnement_fin">
+          </label>
+        </div>
+        <div class="element__actions">
+          <button class="btn btn--primary" type="submit">Enregistrer</button>
+          <button class="lien" type="button" id="etab-annuler" hidden>Annuler la modification</button>
+        </div>
+      </form>
+      <div class="tableau-zone">
+        <table class="tableau">
+          <thead><tr><th>Établissement</th><th>Membres</th><th>Formule</th><th>Abonnement</th><th></th></tr></thead>
+          <tbody id="etablissements"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Demandes de contact -->
+    <section data-panneau="contacts" hidden>
+      <h1>Demandes de contact</h1>
+      <div class="liste" id="contacts"></div>
+    </section>
+  </main>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

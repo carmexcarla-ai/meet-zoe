@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Espace partenaire — Meet Zoe</title>
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-app">
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="partenaire.html" aria-label="Meet Zoe, espace partenaire">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <div class="compte">
+        <a class="lien" href="espace.html">Espace membre</a>
+        <span class="compte__nom" id="compte-nom"></span>
+        <button class="btn btn--ghost btn--sm" type="button" id="deconnexion">Déconnexion</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap app" id="contenu" hidden>
+    <p class="eyebrow">Espace partenaire</p>
+    <h1 id="etab-nom"></h1>
+    <p class="section__intro" id="etab-abonnement"></p>
+
+    <div class="chiffres" id="chiffres"></div>
+    <p class="aide">Ces chiffres sont des totaux. Aucune donnée individuelle sur vos étudiants ou vos équipes n'est accessible ici.</p>
+
+    <h2>Codes d'accès</h2>
+    <p class="aide">Distribuez un code à vos étudiants ou à vos équipes : il les rattache à votre établissement et leur donne un accès immédiat, dans la limite de votre quota.</p>
+
+    <form class="carte-form carte-form--ligne" id="form-code">
+      <label>Libellé <small>(facultatif)</small>
+        <input type="text" name="libelle" maxlength="80" placeholder="Ex. Promotion 2026">
+      </label>
+      <label>Utilisations max. <small>(vide = illimité)</small>
+        <input type="number" name="max" min="1">
+      </label>
+      <label>Expire le <small>(facultatif)</small>
+        <input type="date" name="expire">
+      </label>
+      <button class="btn btn--primary" type="submit">Créer un code</button>
+    </form>
+
+    <div class="tableau-zone">
+      <table class="tableau">
+        <thead><tr><th>Code</th><th>Libellé</th><th>Utilisations</th><th>Expiration</th><th>État</th><th></th></tr></thead>
+        <tbody id="codes"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="js/partenaire.js"></script>
+</body>
+</html>

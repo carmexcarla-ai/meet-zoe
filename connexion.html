@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Connexion — Meet Zoe</title>
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-auth">
+  <main class="auth">
+    <a class="logo" href="index.html" aria-label="Meet Zoe, accueil">
+      <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="12" fill="#5425B8"/>
+        <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+        <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+        <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+      </svg>
+      <span class="logo__text">meet <b>zoe</b></span>
+    </a>
+
+    <div class="auth__carte">
+      <div class="onglets" role="tablist" id="onglets">
+        <button type="button" role="tab" data-onglet="connexion" aria-selected="true">Connexion</button>
+        <button type="button" role="tab" data-onglet="inscription" aria-selected="false">Créer un compte</button>
+      </div>
+
+      <!-- Connexion -->
+      <form data-panneau="connexion" id="form-connexion" class="pile">
+        <h1>Bon retour parmi nous.</h1>
+        <label>Adresse e-mail
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Mot de passe
+          <input type="password" name="mdp" autocomplete="current-password" required>
+        </label>
+        <button class="btn btn--primary" type="submit">Me connecter</button>
+        <button class="lien" type="button" id="lien-oubli">Mot de passe oublié ?</button>
+      </form>
+
+      <!-- Inscription -->
+      <form data-panneau="inscription" id="form-inscription" class="pile" hidden>
+        <h1>Rejoindre la communauté.</h1>
+        <p class="aide">Après la création du compte, vous justifierez votre appartenance au secteur : code d'établissement, justificatif ou invitation.</p>
+        <div class="form__row">
+          <label>Prénom
+            <input type="text" name="prenom" autocomplete="given-name" maxlength="60" required>
+          </label>
+          <label>Nom
+            <input type="text" name="nom" autocomplete="family-name" maxlength="60" required>
+          </label>
+        </div>
+        <label>Adresse e-mail
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <label>Mot de passe <small>(8 caractères minimum)</small>
+          <input type="password" name="mdp" autocomplete="new-password" minlength="8" required>
+        </label>
+        <label>Je suis
+          <select name="categorie" required>
+            <option value="">Choisir…</option>
+            <option value="esi">Étudiant(e) en soins infirmiers</option>
+            <option value="eas">Élève aide-soignant(e)</option>
+            <option value="autre_formation">Étudiant(e) d'une autre formation sanitaire ou médico-sociale</option>
+            <option value="pro_diplome">Professionnel(le) diplômé(e)</option>
+            <option value="pro_non_diplome">Agent de soins, ASH ou personnel éducatif</option>
+            <option value="etablissement">Représentant(e) d'un établissement</option>
+          </select>
+        </label>
+        <label>Établissement ou institut
+          <input type="text" name="etablissement" maxlength="120" placeholder="Ex. IFSI d'Évreux" required>
+        </label>
+        <label class="case">
+          <input type="checkbox" name="accord" required>
+          <span>J'accepte que mes informations soient utilisées pour faire fonctionner le service Meet Zoe.</span>
+        </label>
+        <button class="btn btn--primary" type="submit">Créer mon compte</button>
+      </form>
+
+      <!-- Mot de passe oublié -->
+      <form data-panneau="oubli" id="form-oubli" class="pile" hidden>
+        <h1>Mot de passe oublié</h1>
+        <p class="aide">Indiquez votre adresse : vous recevrez un lien pour choisir un nouveau mot de passe.</p>
+        <label>Adresse e-mail
+          <input type="email" name="email" autocomplete="email" required>
+        </label>
+        <button class="btn btn--primary" type="submit">Recevoir le lien</button>
+      </form>
+
+      <!-- Nouveau mot de passe (après clic sur le lien reçu par e-mail) -->
+      <form data-panneau="nouveau" id="form-nouveau" class="pile" hidden>
+        <h1>Nouveau mot de passe</h1>
+        <label>Nouveau mot de passe <small>(8 caractères minimum)</small>
+          <input type="password" name="mdp" autocomplete="new-password" minlength="8" required>
+        </label>
+        <button class="btn btn--primary" type="submit">Enregistrer</button>
+      </form>
+
+      <!-- Confirmation d'e-mail à faire -->
+      <div data-panneau="confirmer" class="pile" hidden>
+        <h1>Vérifiez votre boîte mail.</h1>
+        <p class="aide">Nous venons de vous envoyer un lien de confirmation. Cliquez dessus, puis revenez vous connecter.</p>
+      </div>
+    </div>
+    <p class="auth__pied"><a href="index.html">← Retour au site</a></p>
+  </main>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="js/connexion.js"></script>
+</body>
+</html>

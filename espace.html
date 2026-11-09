@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mon espace — Meet Zoe</title>
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-app">
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="espace.html" aria-label="Meet Zoe, mon espace">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <div class="compte">
+        <a class="lien" id="lien-partenaire" href="partenaire.html" hidden>Espace partenaire</a>
+        <a class="lien" id="lien-admin" href="admin.html" hidden>Administration</a>
+        <span class="compte__nom" id="compte-nom"></span>
+        <button class="btn btn--ghost btn--sm" type="button" id="deconnexion">Déconnexion</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap app" id="contenu">
+
+    <!-- ===== Vérification du compte (tant que le membre n'est pas vérifié) ===== -->
+    <section id="verification" hidden>
+      <p class="eyebrow">Dernière étape</p>
+      <h1>Justifiez votre appartenance au secteur.</h1>
+      <p class="section__intro">Meet Zoe est réservé aux étudiants et aux professionnels du sanitaire et du médico-social. Choisissez l'une des trois méthodes.</p>
+      <div class="alerte" id="etat-verification" hidden></div>
+
+      <div class="grid3" id="methodes">
+        <form class="card pile" id="form-code">
+          <span class="num">1</span>
+          <h3>Code d'établissement</h3>
+          <p>Remis par votre institut ou votre employeur partenaire. Accès immédiat.</p>
+          <label>Code
+            <input type="text" name="code" placeholder="ZOE-XXXXXXXX" autocapitalize="characters" required>
+          </label>
+          <button class="btn btn--primary" type="submit">Valider le code</button>
+        </form>
+
+        <form class="card pile" id="form-justificatif">
+          <span class="num">2</span>
+          <h3>Justificatif individuel</h3>
+          <p>Certificat de scolarité, carte professionnelle ou attestation d'employeur. Examiné par notre équipe.</p>
+          <label>Fichier <small>(PDF, JPG ou PNG, 5 Mo max.)</small>
+            <input type="file" name="fichier" accept="application/pdf,image/jpeg,image/png" required>
+          </label>
+          <button class="btn btn--primary" type="submit">Envoyer le justificatif</button>
+        </form>
+
+        <form class="card pile" id="form-invitation">
+          <span class="num">3</span>
+          <h3>Invitation d'un membre</h3>
+          <p>Un membre déjà vérifié vous a transmis un code d'invitation. Accès immédiat.</p>
+          <label>Code d'invitation
+            <input type="text" name="code" placeholder="INV-XXXXXXXX" autocapitalize="characters" required>
+          </label>
+          <button class="btn btn--primary" type="submit">Utiliser l'invitation</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===== Espace membre ===== -->
+    <div id="espace" hidden>
+      <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Mon espace">
+        <button type="button" role="tab" data-onglet="rechercher" aria-selected="true">Rechercher</button>
+        <button type="button" role="tab" data-onglet="proposer" aria-selected="false">Proposer un trajet</button>
+        <button type="button" role="tab" data-onglet="trajets" aria-selected="false">Mes trajets</button>
+        <button type="button" role="tab" data-onglet="reservations" aria-selected="false">Mes réservations</button>
+        <button type="button" role="tab" data-onglet="profil" aria-selected="false">Profil</button>
+      </nav>
+
+      <!-- Rechercher -->
+      <section data-panneau="rechercher">
+        <h1>Trouver un covoiturage</h1>
+        <div class="demo">
+          <form class="demo__form" id="form-recherche">
+            <label>Je pars de
+              <input type="text" id="r-depart" placeholder="Commune de départ" required>
+            </label>
+            <label>Je vais à
+              <input type="text" id="r-destination" placeholder="Commune de l'établissement" required>
+            </label>
+            <label>Date
+              <input type="date" id="r-date" required>
+            </label>
+            <label>Je dois arriver avant
+              <input type="time" id="r-heure" value="06:45" required>
+            </label>
+            <button class="btn btn--primary" type="submit">Trouver un trajet</button>
+          </form>
+          <div class="demo__results" id="resultats" aria-live="polite">
+            <div class="empty">Indiquez votre trajet pour voir les covoiturages compatibles.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Proposer -->
+      <section data-panneau="proposer" hidden>
+        <h1>Proposer un trajet</h1>
+        <form class="carte-form" id="form-trajet">
+          <div class="form__row">
+            <label>Commune de départ
+              <input type="text" id="t-depart" required>
+            </label>
+            <label>Commune d'arrivée
+              <input type="text" id="t-destination" required>
+            </label>
+          </div>
+          <label>Établissement de destination
+            <input type="text" name="destination_nom" list="liste-etablissements" maxlength="120" placeholder="Ex. Centre hospitalier, IFSI, EHPAD…" required>
+            <datalist id="liste-etablissements"></datalist>
+          </label>
+          <div class="form__row">
+            <label>Du
+              <input type="date" name="date_debut" required>
+            </label>
+            <label>Au
+              <input type="date" name="date_fin" required>
+            </label>
+          </div>
+          <fieldset>
+            <legend>Jours concernés</legend>
+            <div class="jours">
+              <label class="jour"><input type="checkbox" name="jours" value="1" checked><span>Lun</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="2" checked><span>Mar</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="3" checked><span>Mer</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="4" checked><span>Jeu</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="5" checked><span>Ven</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="6"><span>Sam</span></label>
+              <label class="jour"><input type="checkbox" name="jours" value="7"><span>Dim</span></label>
+            </div>
+          </fieldset>
+          <div class="form__row">
+            <label>Heure d'arrivée sur place
+              <input type="time" name="heure_arrivee" required>
+            </label>
+            <label>Heure de retour <small>(facultatif)</small>
+              <input type="time" name="heure_retour">
+            </label>
+          </div>
+          <div class="form__row">
+            <label>Places proposées
+              <input type="number" name="places" min="1" max="8" value="2" required>
+            </label>
+            <label>Détour maximal accepté (km)
+              <input type="number" name="detour_max_km" min="0" max="50" value="10" required>
+            </label>
+          </div>
+          <label>Précisions <small>(facultatif)</small>
+            <textarea name="commentaire" maxlength="500" rows="3" placeholder="Point de rendez-vous, participation aux frais, etc."></textarea>
+          </label>
+          <button class="btn btn--primary" type="submit">Publier le trajet</button>
+        </form>
+      </section>
+
+      <!-- Mes trajets -->
+      <section data-panneau="trajets" hidden>
+        <h1>Mes trajets</h1>
+        <div class="liste" id="mes-trajets"></div>
+      </section>
+
+      <!-- Mes réservations -->
+      <section data-panneau="reservations" hidden>
+        <h1>Mes réservations</h1>
+        <div class="liste" id="mes-reservations"></div>
+      </section>
+
+      <!-- Profil -->
+      <section data-panneau="profil" hidden>
+        <h1>Mon profil</h1>
+        <div class="deux-colonnes">
+          <form class="carte-form" id="form-profil">
+            <h2>Mes informations</h2>
+            <div class="form__row">
+              <label>Prénom
+                <input type="text" name="prenom" maxlength="60" required>
+              </label>
+              <label>Nom
+                <input type="text" name="nom" maxlength="60" required>
+              </label>
+            </div>
+            <label>Ville
+              <input type="text" name="ville" maxlength="80">
+            </label>
+            <label>Téléphone <small>(facultatif, jamais affiché aux autres membres)</small>
+              <input type="tel" name="telephone" maxlength="20">
+            </label>
+            <label>Établissement ou institut
+              <input type="text" name="etablissement_declare" maxlength="120">
+            </label>
+            <p class="aide" id="profil-resume"></p>
+            <button class="btn btn--primary" type="submit">Enregistrer</button>
+          </form>
+
+          <div class="pile">
+            <div class="carte-form">
+              <h2>Inviter un collègue</h2>
+              <p class="aide">Vous pouvez inviter jusqu'à 5 personnes du secteur. En invitant quelqu'un, vous vous portez garant de son appartenance au secteur.</p>
+              <ul class="invitations" id="invitations"></ul>
+              <button class="btn btn--ghost" type="button" id="creer-invitation">Créer une invitation</button>
+            </div>
+            <div class="carte-form">
+              <h2>Supprimer mon compte</h2>
+              <p class="aide">Votre profil, vos trajets, vos réservations et vos messages seront définitivement effacés.</p>
+              <button class="btn btn--danger" type="button" id="supprimer-compte">Supprimer mon compte</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Messagerie d'une réservation -->
+  <dialog class="fil" id="fil">
+    <header>
+      <h2 id="fil-titre">Messages</h2>
+      <button class="lien" type="button" id="fil-fermer" aria-label="Fermer">Fermer</button>
+    </header>
+    <div class="fil__messages" id="fil-messages"></div>
+    <form id="fil-form">
+      <input type="text" name="contenu" maxlength="2000" placeholder="Votre message…" aria-label="Votre message" required>
+      <button class="btn btn--primary btn--sm" type="submit">Envoyer</button>
+    </form>
+  </dialog>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="js/espace.js"></script>
+</body>
+</html>

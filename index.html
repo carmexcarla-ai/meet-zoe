@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Meet Zoe — Le covoiturage pour ceux qui prennent soin des autres</title>
+  <meta name="description" content="Meet Zoe met en relation les étudiants et les professionnels du sanitaire et du médico-social pour covoiturer vers leurs lieux de stage et de travail. Accès réservé et vérifié.">
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
+  <!-- ===== En-tête ===== -->
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="#" aria-label="Meet Zoe, accueil">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="menu" aria-label="Navigation principale">
+        <a href="#concept">Le concept</a>
+        <a href="#acces">Accès vérifié</a>
+        <a href="#demo">Démo</a>
+        <a href="#partenaires">Partenaires</a>
+        <a href="connexion.html">Connexion</a>
+        <a class="btn btn--primary btn--sm" href="connexion.html#inscription">Créer mon compte</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenu">
+
+    <!-- ===== Accueil ===== -->
+    <section class="hero">
+      <div class="wrap hero__in">
+        <div class="hero__text">
+          <p class="pill"><span class="dot"></span> Lancement en Normandie · IFSI, hôpitaux, EHPAD</p>
+          <h1>Le covoiturage pour ceux qui prennent soin des autres.</h1>
+          <p class="lead">Meet Zoe réunit les étudiants et les professionnels du sanitaire et du médico-social pour rejoindre ensemble leurs lieux de stage et de travail. Une communauté réservée, où chaque membre est vérifié.</p>
+          <div class="hero__cta">
+            <a class="btn btn--primary" href="connexion.html#inscription">Créer mon compte</a>
+            <a class="btn btn--ghost" href="#partenaires">Je représente un établissement</a>
+          </div>
+          <ul class="hero__trust">
+            <li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.5l3.2 3.2L15 7" /></svg> Membres vérifiés</li>
+            <li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.5l3.2 3.2L15 7" /></svg> Horaires de stage et de garde</li>
+            <li><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10.5l3.2 3.2L15 7" /></svg> Fermé au grand public</li>
+          </ul>
+        </div>
+
+        <div class="hero__visual" aria-hidden="true">
+          <div class="trip trip--float">
+            <div class="trip__head">
+              <span class="avatar">CL</span>
+              <div>
+                <strong>Camille L.</strong>
+                <small>Étudiante infirmière · 2<sup>e</sup> année</small>
+              </div>
+              <span class="badge badge--ok">Vérifiée</span>
+            </div>
+            <div class="route">
+              <div class="route__line"><i></i><i></i></div>
+              <div class="route__stops">
+                <p><b>06:05</b> Vernon, gare</p>
+                <p><b>06:40</b> Centre hospitalier, Évreux</p>
+              </div>
+            </div>
+            <div class="trip__foot">
+              <span>Lun. → ven. · stage de 5 semaines</span>
+              <span class="seats">2 places</span>
+            </div>
+          </div>
+          <div class="match">
+            <span class="match__score">94%</span>
+            <div>
+              <strong>Trajet compatible</strong>
+              <small>Même destination, arrivée avant 06:45</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Constat ===== -->
+    <section class="section" id="concept">
+      <div class="wrap">
+        <p class="eyebrow">Le constat</p>
+        <h2>Soigner commence par réussir à venir.</h2>
+        <p class="section__intro">Beaucoup d'étudiants et de professionnels peinent à rejoindre leur établissement. Meet Zoe part de trois difficultés très concrètes.</p>
+        <div class="grid3">
+          <article class="card">
+            <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.500C5 14.800 12 21 12 21z"/><circle cx="12" cy="9.500" r="2.500"/></svg></span>
+            <h3>Des lieux éloignés</h3>
+            <p>Stages et établissements sont souvent loin du domicile, parfois en zone rurale, et changent d'une période à l'autre.</p>
+          </article>
+          <article class="card">
+            <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16l1.500-5a2 2 0 012-1.500h7a2 2 0 012 1.500L19 16"/><rect x="3.500" y="13" width="17" height="5" rx="1.500"/><path d="M4 4l16 16"/></svg></span>
+            <h3>Pas de véhicule personnel</h3>
+            <p>Tout le monde n'a pas le permis ou une voiture, surtout pendant les études. Un stage ne devrait pas en dépendre.</p>
+          </article>
+          <article class="card">
+            <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.500"/><path d="M12 7v5l3 2"/></svg></span>
+            <h3>Des horaires décalés</h3>
+            <p>Prise de poste à 6 h 30, fin à 21 h, nuits et week-ends : les transports en commun ne suivent pas ces rythmes.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Pour qui ===== -->
+    <section class="section section--lav">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">La communauté</p>
+          <h2>Une plateforme réservée au secteur.</h2>
+          <p>Meet Zoe n'est pas un covoiturage ouvert à tous. C'est un réseau d'étudiants et de professionnels qui partagent les mêmes lieux, les mêmes horaires et les mêmes contraintes.</p>
+        </div>
+        <ul class="who">
+          <li><b>Étudiants en soins infirmiers</b><span>IFSI, toutes années</span></li>
+          <li><b>Élèves aides-soignants</b><span>IFAS et formations associées</span></li>
+          <li><b>Autres formations sanitaires et médico-sociales</b><span>Selon les conditions d'admission</span></li>
+          <li><b>Professionnels diplômés</b><span>Hôpitaux, EHPAD, FAM, foyers de vie</span></li>
+          <li><b>Personnels non diplômés du secteur</b><span>Agents de soins, ASH, personnels éducatifs</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ===== Accès vérifié ===== -->
+    <section class="section" id="acces">
+      <div class="wrap">
+        <p class="eyebrow">Accès contrôlé</p>
+        <h2>Trois façons d'entrer, une seule exigence : appartenir au secteur.</h2>
+        <p class="section__intro">Seuls les membres autorisés peuvent consulter les trajets, réserver une place et échanger avec les autres.</p>
+        <div class="grid3">
+          <article class="card card--num">
+            <span class="num">1</span>
+            <h3>Code d'établissement</h3>
+            <p>Votre IFSI ou votre employeur partenaire vous remet un code. Il vous rattache à l'établissement et à son quota de membres.</p>
+          </article>
+          <article class="card card--num">
+            <span class="num">2</span>
+            <h3>Justificatif individuel</h3>
+            <p>Sans établissement partenaire, vous transmettez un document adapté : certificat de scolarité, carte professionnelle, attestation d'employeur.</p>
+          </article>
+          <article class="card card--num">
+            <span class="num">3</span>
+            <h3>Invitation d'un membre</h3>
+            <p>Un membre déjà vérifié peut vous inviter. Il se porte garant de votre appartenance au secteur.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Comment ça marche ===== -->
+    <section class="section section--night">
+      <div class="wrap">
+        <p class="eyebrow eyebrow--light">Comment ça marche</p>
+        <h2>De l'inscription au premier trajet.</h2>
+        <ol class="steps">
+          <li><span>01</span><h3>Créez votre profil</h3><p>Formation ou métier, établissement, conducteur ou passager.</p></li>
+          <li><span>02</span><h3>Indiquez vos trajets</h3><p>Lieu de départ, destination, dates de stage, heures de prise et de fin de poste.</p></li>
+          <li><span>03</span><h3>Recevez des propositions</h3><p>Le matching compare destinations, horaires, dates et détours acceptables.</p></li>
+          <li><span>04</span><h3>Réservez et échangez</h3><p>Réservez une place, puis organisez-vous par messagerie avec les autres membres.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== Démo ===== -->
+    <section class="section" id="demo">
+      <div class="wrap">
+        <p class="eyebrow">Démonstration</p>
+        <h2>Essayez le matching.</h2>
+        <p class="section__intro">Indiquez votre trajet : la démo classe les covoiturages selon leur compatibilité. <em>Les trajets et les membres affichés sont fictifs.</em></p>
+
+        <div class="demo">
+          <form class="demo__form" id="recherche">
+            <label>Je pars de
+              <select name="depart" id="depart"></select>
+            </label>
+            <label>Je vais à
+              <select name="destination" id="destination"></select>
+            </label>
+            <label>Jour
+              <select name="jour" id="jour">
+                <option value="lun">Lundi</option>
+                <option value="mar">Mardi</option>
+                <option value="mer">Mercredi</option>
+                <option value="jeu">Jeudi</option>
+                <option value="ven">Vendredi</option>
+                <option value="sam">Samedi</option>
+                <option value="dim">Dimanche</option>
+              </select>
+            </label>
+            <label>Je dois arriver avant
+              <input type="time" name="heure" id="heure" value="06:45" required>
+            </label>
+            <button class="btn btn--primary" type="submit">Trouver un trajet</button>
+          </form>
+
+          <div class="demo__results" id="resultats" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== Partenaires ===== -->
+    <section class="section section--lav" id="partenaires">
+      <div class="wrap">
+        <p class="eyebrow">Espace partenaires</p>
+        <h2>Un service de mobilité pour vos étudiants et vos équipes.</h2>
+        <p class="section__intro">IFSI, hôpitaux, EHPAD, FAM, foyers de vie : l'établissement s'abonne, ses membres accèdent à la plateforme.</p>
+
+        <div class="split split--top">
+          <ul class="checks">
+            <li><b>Accès institutionnels</b> Générez et distribuez vos codes d'établissement.</li>
+            <li><b>Quotas maîtrisés</b> Suivez le nombre de membres rattachés à votre formule.</li>
+            <li><b>Statistiques générales</b> Membres actifs, trajets proposés, places partagées — sans donnée individuelle.</li>
+            <li><b>Attractivité</b> Facilitez l'accès aux stages et aux postes éloignés ou en horaires décalés.</li>
+          </ul>
+
+          <div class="plans">
+            <article class="plan">
+              <h3>Établissement</h3>
+              <p>Un site, un quota de membres adapté à votre effectif.</p>
+              <span>Abonnement annuel</span>
+            </article>
+            <article class="plan plan--main">
+              <h3>Institut de formation</h3>
+              <p>Codes par promotion, suivi des périodes de stage.</p>
+              <span>Abonnement annuel</span>
+            </article>
+            <article class="plan">
+              <h3>Réseau d'établissements</h3>
+              <p>Contrat cadre multi-sites et services complémentaires.</p>
+              <span>Sur étude</span>
+            </article>
+          </div>
+        </div>
+        <p class="note">Les tarifs dépendent du nombre de membres et des services retenus. <a href="#contact">Contactez-nous</a> pour une proposition.</p>
+      </div>
+    </section>
+
+    <!-- ===== Lancement ===== -->
+    <section class="section">
+      <div class="wrap split">
+        <div>
+          <p class="eyebrow">Déploiement</p>
+          <h2>D'abord la Normandie, ensuite les autres régions.</h2>
+          <p>Meet Zoe démarre autour d'Évreux, avec les instituts de formation et les établissements du territoire, avant de s'étendre progressivement région par région.</p>
+        </div>
+        <ol class="timeline">
+          <li><b>Étape 1</b> Une première version solide de la plateforme.</li>
+          <li><b>Étape 2</b> Premiers partenariats institutionnels en Normandie.</li>
+          <li><b>Étape 3</b> Extension du réseau à d'autres régions françaises.</li>
+          <li><b>Étape 4</b> Une solution nationale de mobilité pour le secteur.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== Rejoindre / contact ===== -->
+    <section class="section section--night" id="rejoindre">
+      <div class="wrap split split--top">
+        <div>
+          <p class="eyebrow eyebrow--light">Rejoindre Meet Zoe</p>
+          <h2>Étudiant ou professionnel ? Créez votre compte.</h2>
+          <p>L'inscription prend deux minutes. Vous justifiez ensuite votre appartenance au secteur avec un code d'établissement, un justificatif ou une invitation.</p>
+          <p><a class="btn btn--green" href="connexion.html#inscription">Créer mon compte</a></p>
+          <p class="signature">Ensemble, allons plus loin.</p>
+        </div>
+
+        <form class="form" id="contact" novalidate>
+          <h3>Vous représentez un établissement ?</h3>
+          <p class="aide">IFSI, hôpital, EHPAD, FAM, foyer de vie : laissez-nous vos coordonnées, nous vous recontactons.</p>
+          <label>Votre nom
+            <input type="text" name="nom" autocomplete="name" maxlength="120" required>
+          </label>
+          <label>Adresse e-mail professionnelle
+            <input type="email" name="email" autocomplete="email" maxlength="160" required>
+          </label>
+          <label>Établissement
+            <input type="text" name="organisme" maxlength="160" placeholder="Ex. IFSI d'Évreux" required>
+          </label>
+          <label>Votre message <small>(facultatif)</small>
+            <textarea name="message" rows="3" maxlength="2000"></textarea>
+          </label>
+          <button class="btn btn--primary" type="submit">Être recontacté</button>
+          <p class="form__msg" id="message" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__in">
+      <div>
+        <span class="logo__text logo__text--light">meet <b>zoe</b></span>
+        <p>Le covoiturage pour ceux qui prennent soin des autres.</p>
+      </div>
+      <nav aria-label="Pied de page">
+        <a href="#concept">Le concept</a>
+        <a href="#acces">Accès vérifié</a>
+        <a href="#partenaires">Partenaires</a>
+        <a href="#rejoindre">Contact</a>
+      </nav>
+    </div>
+    <div class="wrap footer__legal">© <span id="annee"></span> Meet Zoe · Mentions légales et politique de confidentialité à venir</div>
+  </footer>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
