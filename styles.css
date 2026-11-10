@@ -665,3 +665,4 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
   .photo-profil { align-items: flex-start; }
 }
 .note--haut { margin-top: 14px; }
+.champ-code { font-size: 1.5rem !important; letter-spacing: .35em; text-align: center; font-variant-numeric: tabular-nums; }

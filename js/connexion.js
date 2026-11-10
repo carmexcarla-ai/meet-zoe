@@ -28,11 +28,43 @@
 
   $('#lien-oubli').addEventListener('click', () => montrer('oubli'));
 
+  // Étape « code de confirmation » : on retient l'adresse à confirmer.
+  let emailAConfirmer = '';
+  function demanderCode(email) {
+    emailAConfirmer = email;
+    $('#code-email').textContent = email;
+    montrer('confirmer');
+    $('#form-code').code.focus();
+  }
+
+  $('#form-code').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    occupe(f.querySelector('[type=submit]'), async () => {
+      const { error } = await sb.auth.verifyOtp({ email: emailAConfirmer, token: f.code.value.trim(), type: 'email' });
+      if (error) throw new Error('Ce code est incorrect ou a expiré. Vérifiez-le, ou demandez-en un nouveau.');
+      await entrer();
+    });
+  });
+
+  $('#renvoyer-code').addEventListener('click', (e) => occupe(e.currentTarget, async () => {
+    await req(sb.auth.resend({ type: 'signup', email: emailAConfirmer }));
+    toast('Un nouveau code vient de partir.');
+  }));
+
   $('#form-connexion').addEventListener('submit', (e) => {
     e.preventDefault();
     const f = e.target;
     occupe(f.querySelector('[type=submit]'), async () => {
-      await req(sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.mdp.value }));
+      const email = f.email.value.trim();
+      const { error } = await sb.auth.signInWithPassword({ email, password: f.mdp.value });
+      // Compte créé mais adresse jamais confirmée : on renvoie un code.
+      if (error && /not confirmed/i.test(error.message)) {
+        await sb.auth.resend({ type: 'signup', email });
+        demanderCode(email);
+        return;
+      }
+      if (error) throw error;
       await entrer();
     });
   });
@@ -58,7 +90,7 @@
         },
       }));
       if (data.session) await entrer();
-      else montrer('confirmer');
+      else demanderCode(f.email.value.trim());
     });
   });
 

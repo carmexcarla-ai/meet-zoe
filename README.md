@@ -63,6 +63,19 @@ where email = 'votre-adresse@exemple.fr';
 
 4. Reconnectez-vous : vous arrivez dans l'administration.
 
+### Code de confirmation par e-mail
+
+À l'inscription, le membre reçoit un code à 6 chiffres qu'il saisit sur le
+site. Pour que l'e-mail contienne ce code :
+
+1. Dans Supabase : **Authentication** > **Emails** > modèle **Confirm signup**.
+2. Objet : `Votre code de confirmation Meet Zoe`.
+3. Remplacez le contenu par celui du fichier `supabase/emails/confirmation.html`.
+4. Enregistrez.
+
+Tant que ce modèle n'est pas modifié, l'e-mail contient un lien à cliquer au
+lieu du code : l'inscription fonctionne quand même, par le lien.
+
 ### 5. Mettre le site en ligne
 
 Le dossier `meet-zoe` peut être déposé tel quel chez un hébergeur de sites
@@ -101,6 +114,7 @@ limité à quelques e-mails par heure.
 | `js/partenaire.js`      | Espace partenaire                                           |
 | `js/admin.js`           | Administration                                              |
 | `supabase/schema.sql`   | Base de données : tables, règles de sécurité, fonctions     |
+| `supabase/emails/confirmation.html` | Modèle de l'e-mail de code de confirmation |
 | `vendor/supabase.js`    | Bibliothèque officielle Supabase (ne pas modifier)          |
 
 ## Fonctionnement
