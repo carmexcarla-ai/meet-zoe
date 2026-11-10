@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Administration — Meet Zoe</title>
   <meta name="robots" content="noindex">
   <meta name="theme-color" content="#5425B8">
@@ -36,7 +38,9 @@
     <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Administration">
       <button type="button" role="tab" data-onglet="membres" aria-selected="true">Membres</button>
       <button type="button" role="tab" data-onglet="etablissements" aria-selected="false">Établissements</button>
+      <button type="button" role="tab" data-onglet="moderation" aria-selected="false">Modération <span class="pastille" id="pastille-moderation" hidden></span></button>
       <button type="button" role="tab" data-onglet="contacts" aria-selected="false">Demandes de contact</button>
+      <button type="button" role="tab" data-onglet="journal" aria-selected="false">Journal</button>
     </nav>
 
     <!-- Membres -->
@@ -121,6 +125,27 @@
         <table class="tableau">
           <thead><tr><th>Établissement</th><th>Membres</th><th>Formule</th><th>Abonnement</th><th></th></tr></thead>
           <tbody id="etablissements"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Modération : signalements et avis -->
+    <section data-panneau="moderation" hidden>
+      <h1>Modération</h1>
+      <h2>Signalements</h2>
+      <div class="liste" id="signalements"></div>
+      <h2>Avis récents</h2>
+      <div class="liste" id="avis"></div>
+    </section>
+
+    <!-- Journal des actions d'administration -->
+    <section data-panneau="journal" hidden>
+      <h1>Journal</h1>
+      <p class="aide">Les 200 dernières actions d'administration. Le journal ne peut pas être modifié depuis le site.</p>
+      <div class="tableau-zone">
+        <table class="tableau">
+          <thead><tr><th>Date</th><th>Par</th><th>Action</th><th>Concerne</th></tr></thead>
+          <tbody id="journal"></tbody>
         </table>
       </div>
     </section>

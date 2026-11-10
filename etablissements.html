@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Établissements partenaires — Meet Zoe</title>
   <meta name="description" content="IFSI, hôpitaux, EHPAD, FAM, foyers de vie : offrez à vos étudiants et à vos équipes un covoiturage réservé au secteur, avec des accès que vous maîtrisez.">
   <meta name="theme-color" content="#5425B8">
@@ -101,6 +103,9 @@
           </label>
           <label>Établissement
             <input type="text" name="organisme" maxlength="160" placeholder="Ex. IFSI d'Évreux" required>
+          </label>
+          <label class="piege" aria-hidden="true">Ne pas remplir
+            <input type="text" name="site_web" tabindex="-1" autocomplete="off">
           </label>
           <label>Votre message <small>(facultatif)</small>
             <textarea name="message" rows="3" maxlength="2000"></textarea>

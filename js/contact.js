@@ -20,6 +20,14 @@ formContact.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Champ invisible : seul un robot le remplit. On fait comme si tout allait bien.
+  if (formContact.site_web.value) {
+    message.textContent = 'Merci ! Votre demande est bien enregistrée, nous revenons vers vous rapidement.';
+    message.classList.add('ok');
+    formContact.reset();
+    return;
+  }
+
   const bouton = formContact.querySelector('[type=submit]');
   bouton.disabled = true;
   // La demande est enregistrée ; seule l'administration peut la lire.

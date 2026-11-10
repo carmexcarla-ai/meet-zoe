@@ -42,8 +42,9 @@
     $('#form-code').addEventListener('submit', (e) => {
       e.preventDefault();
       occupe(e.submitter, async () => {
-        const etablissement = await req(sb.rpc('utiliser_code', { p_code: e.target.code.value }));
-        toast(`Bienvenue ! Vous êtes rattaché(e) à ${etablissement}.`);
+        const reponse = await req(sb.rpc('utiliser_code', { p_code: e.target.code.value }));
+        if (!reponse.ok) throw new Error(reponse.message);
+        toast(`Bienvenue ! Vous êtes rattaché(e) à ${reponse.etablissement}.`);
         setTimeout(() => location.reload(), 900);
       });
     });
@@ -51,7 +52,8 @@
     $('#form-invitation').addEventListener('submit', (e) => {
       e.preventDefault();
       occupe(e.submitter, async () => {
-        await req(sb.rpc('utiliser_invitation', { p_code: e.target.code.value }));
+        const reponse = await req(sb.rpc('utiliser_invitation', { p_code: e.target.code.value }));
+        if (!reponse.ok) throw new Error(reponse.message);
         toast('Bienvenue dans la communauté !');
         setTimeout(() => location.reload(), 900);
       });
@@ -125,7 +127,7 @@
       depart_ville: depart.ville, depart_lat: depart.lat, depart_lng: depart.lng,
       destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
       date_debut: rDebut.value, date_fin: rFin.value, jours,
-      heure_arrivee: $('#r-heure').value, heure_retour: $('#r-retour').value || null,
+      heure_arrivee: $('#r-heure').value, heure_retour: $('#r-retour').value,
       marge_min: Number($('#r-marge').value),
     };
   }
@@ -173,6 +175,7 @@
       return html`${aller}${retour}`;
     };
 
+    const urls = await Zoe.photos(trajets.map((t) => t.photo_path));
     zone.innerHTML = html`
       <div class="resultats__tete">
         <p><b>${trajets.length} trajet${trajets.length > 1 ? 's' : ''} compatible${trajets.length > 1 ? 's' : ''}</b> · ${resumeBesoin(besoin)}</p>
@@ -182,8 +185,14 @@
       <article class="result" data-trajet="${t.id}">
         <div class="result__score" style="--p:${Math.max(0, t.score)}" aria-label="Compatibilité ${t.score} %">${Math.max(0, t.score)}%</div>
         <div class="result__main">
-          <strong>${t.prenom} ${t.initiale}.</strong> <span class="badge badge--ok">Vérifié</span>
-          <p>${Zoe.CATEGORIES[t.categorie]}${t.etablissement ? ` · ${t.etablissement}` : ''}</p>
+          <div class="result__qui">
+            ${Zoe.avatar(t.prenom, t.initiale, urls[t.photo_path])}
+            <div>
+              <button class="lien-nom" type="button" data-fiche="${t.conducteur_id}">${t.prenom} ${t.initiale}.</button>
+              <span class="badge badge--ok">Permis contrôlé</span> ${Zoe.etoiles(t.note_moyenne, t.nb_avis)}
+              <p>${Zoe.CATEGORIES[t.categorie]}${t.etablissement ? ` · ${t.etablissement}` : ''}</p>
+            </div>
+          </div>
           <p><b>${t.depart_ville} → ${t.destination_nom}</b> (${t.destination_ville})</p>
           <p>Roule ${Zoe.jours(t.jours)} · jusqu'au ${Zoe.date(t.date_fin)}</p>
           ${t.commentaire ? html`<p class="citation">« ${t.commentaire} »</p>` : ''}
@@ -429,10 +438,10 @@
             </div>
           </div>
           ${demandes.length ? html`<ul class="demandes">${demandes.map((r) => html`
-            <li data-reservation="${r.id}" data-nom="${nomMembre(membres[r.passager_id])}">
+            <li data-reservation="${r.id}" data-nom="${nomMembre(membres[r.passager_id])}" data-statut="${r.statut}">
               <span class="avatar">${membres[r.passager_id] ? Zoe.initiales(membres[r.passager_id].prenom, membres[r.passager_id].initiale) : '?'}</span>
               <div>
-                <strong>${nomMembre(membres[r.passager_id])}</strong>
+                <button class="lien-nom" type="button" data-fiche="${r.passager_id}">${nomMembre(membres[r.passager_id])}</button>
                 <small>${membres[r.passager_id] ? Zoe.CATEGORIES[membres[r.passager_id].categorie] : ''}</small>
               </div>
               ${badgeReservation(r.statut)}
@@ -455,7 +464,7 @@
     const ligne = bouton.closest('[data-reservation]');
     const action = bouton.dataset.action;
 
-    if (action === 'messages') { ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom); return; }
+    if (action === 'messages') { ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom, ligne.dataset.statut); return; }
     if (action === 'dupliquer') {
       // Reprend le trajet dans le formulaire : il ne reste qu'à changer les jours ou les heures.
       const t = $('#mes-trajets')._trajets[idTrajet];
@@ -503,23 +512,42 @@
       const trajets = await req(sb.from('trajets').select('*').in('id', reservations.map((r) => r.trajet_id)));
       const parId = Object.fromEntries(trajets.map((t) => [t.id, t]));
       const membres = await membresParId(trajets.map((t) => t.conducteur_id));
+      const avisDonnes = await req(sb.from('avis').select('reservation_id, note, commentaire').eq('auteur_id', moi.id));
+      const mesAvis = Object.fromEntries(avisDonnes.map((a) => [a.reservation_id, a]));
+      zone._avis = mesAvis;
 
       zone.innerHTML = html`${reservations.filter((r) => parId[r.trajet_id]).map((r) => {
         const t = parId[r.trajet_id];
         const conducteur = nomMembre(membres[t.conducteur_id]);
         return html`
-        <article class="element" data-reservation="${r.id}" data-nom="${conducteur}">
+        <article class="element" data-reservation="${r.id}" data-nom="${conducteur}" data-statut="${r.statut}">
           <div class="element__tete">
             <div>
               ${resumeTrajet(t)}
-              <p>Conducteur : <b>${conducteur}</b></p>
+              <p>Conducteur : <button class="lien-nom" type="button" data-fiche="${t.conducteur_id}">${conducteur}</button></p>
             </div>
             <div class="element__actions">
               ${badgeReservation(r.statut)}
               <button class="lien" type="button" data-action="messages">Messages</button>
+              ${r.statut === 'acceptee' && t.date_debut <= Zoe.aujourdhui() ? html`<button class="lien" type="button" data-action="avis">${mesAvis[r.id] ? 'Modifier mon avis' : 'Laisser un avis'}</button>` : ''}
               ${['demandee', 'acceptee'].includes(r.statut) ? html`<button class="lien lien--danger" type="button" data-action="annuler">Annuler</button>` : ''}
             </div>
           </div>
+          <form class="form-avis" hidden>
+            <label>Ma note
+              <select name="note" required>
+                <option value="5">★★★★★ Excellent</option>
+                <option value="4">★★★★ Très bien</option>
+                <option value="3">★★★ Correct</option>
+                <option value="2">★★ Décevant</option>
+                <option value="1">★ À éviter</option>
+              </select>
+            </label>
+            <label>Mon commentaire <small>(facultatif, visible des autres membres)</small>
+              <textarea name="commentaire" rows="2" maxlength="500" placeholder="Ponctualité, conduite, ambiance…"></textarea>
+            </label>
+            <button class="btn btn--green btn--sm" type="submit">Publier mon avis</button>
+          </form>
         </article>`;
       })}`;
     } catch (e) { Zoe.erreur(e); }
@@ -529,7 +557,14 @@
     const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
     const carte = bouton.closest('[data-reservation]');
-    if (bouton.dataset.action === 'messages') { ouvrirFil(carte.dataset.reservation, carte.dataset.nom); return; }
+    if (bouton.dataset.action === 'messages') { ouvrirFil(carte.dataset.reservation, carte.dataset.nom, carte.dataset.statut); return; }
+    if (bouton.dataset.action === 'avis') {
+      const formulaire = $('.form-avis', carte);
+      const existant = $('#mes-reservations')._avis[carte.dataset.reservation];
+      if (existant) { formulaire.note.value = existant.note; formulaire.commentaire.value = existant.commentaire || ''; }
+      formulaire.hidden = !formulaire.hidden;
+      return;
+    }
     if (!confirm('Annuler cette réservation ?')) return;
     occupe(bouton, async () => {
       await req(sb.rpc('annuler_reservation', { p_reservation: carte.dataset.reservation }));
@@ -574,7 +609,7 @@
       zone.innerHTML = conversations.length
         ? html`${conversations.map((c) => html`
           <button class="conversation ${c.non_lus ? 'conversation--nonlu' : ''}" type="button"
-                  data-reservation="${c.reservation_id}" data-nom="${c.autre_prenom} ${c.autre_initiale}.">
+                  data-reservation="${c.reservation_id}" data-nom="${c.autre_prenom} ${c.autre_initiale}." data-statut="${c.statut}">
             <span class="avatar">${Zoe.initiales(c.autre_prenom, c.autre_initiale)}</span>
             <span class="conversation__texte">
               <strong>${c.autre_prenom} ${c.autre_initiale}.</strong>
@@ -593,10 +628,14 @@
 
   $('#conversations').addEventListener('click', (e) => {
     const ligne = e.target.closest('[data-reservation]');
-    if (ligne) ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom);
+    if (ligne) ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom, ligne.dataset.statut);
   });
 
-  function ouvrirFil(reservation, nom) {
+  function ouvrirFil(reservation, nom, statut) {
+    // Après un refus ou une annulation, on peut relire mais plus écrire.
+    const close = ['refusee', 'annulee'].includes(statut);
+    $('#fil-form').hidden = close;
+    $('#fil-clos').hidden = !close;
     filReservation = reservation;
     $('#fil-titre').textContent = `Messages avec ${nom}`;
     $('#fil-messages').innerHTML = '';
@@ -631,7 +670,8 @@
   const formProfil = $('#form-profil');
 
   async function chargerProfil() {
-    for (const champ of ['prenom', 'nom', 'ville', 'telephone', 'etablissement_declare']) {
+    afficherPhoto();
+    for (const champ of ['prenom', 'nom', 'ville', 'telephone', 'etablissement_declare', 'vehicule', 'bio']) {
       formProfil[champ].value = moi[champ] || '';
     }
     const methodes = { code: 'code d\'établissement', justificatif: 'justificatif', invitation: 'invitation', admin: 'l\'équipe Meet Zoe' };
@@ -656,12 +696,125 @@
         ville: formProfil.ville.value.trim() || null,
         telephone: formProfil.telephone.value.trim() || null,
         etablissement_declare: formProfil.etablissement_declare.value.trim() || null,
+        vehicule: formProfil.vehicule.value.trim() || null,
+        bio: formProfil.bio.value.trim() || null,
       }).eq('id', moi.id).select());
       moi = maj;
       $('#compte-nom').textContent = `${moi.prenom} ${moi.nom}`;
       toast('Profil enregistré.');
     });
   });
+
+  /* ---------- Avis sur un conducteur ---------- */
+  $('#mes-reservations').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const carte = e.target.closest('[data-reservation]');
+    occupe(e.submitter, async () => {
+      await req(sb.rpc('laisser_avis', {
+        p_reservation: carte.dataset.reservation,
+        p_note: Number(e.target.note.value),
+        p_commentaire: e.target.commentaire.value,
+      }));
+      toast('Merci, votre avis est publié.');
+      await chargerMesReservations();
+    });
+  });
+
+  /* ---------- Fiche d'un membre ---------- */
+  const fiche = $('#fiche');
+  $('#fiche-fermer').addEventListener('click', () => fiche.close());
+
+  async function ouvrirFiche(id) {
+    const f = await req(sb.rpc('fiche_membre', { p_membre: id }));
+    if (!f) throw new Error('Cette fiche n\'est plus disponible.');
+    const urls = await Zoe.photos([f.photo_path]);
+    const depuis = new Date(f.membre_depuis).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    $('#fiche-corps').innerHTML = html`
+      <div class="fiche__tete">
+        ${Zoe.avatar(f.prenom, f.initiale, urls[f.photo_path], 'avatar--grand')}
+        <div>
+          <h3>${f.prenom} ${f.initiale}.</h3>
+          <p>${Zoe.CATEGORIES[f.categorie]}${f.etablissement ? ` · ${f.etablissement}` : ''}</p>
+          <div class="result__tags">
+            <span class="badge badge--ok">Membre vérifié</span>
+            ${f.conducteur_valide ? html`<span class="badge badge--ok">Permis et identité contrôlés</span>` : ''}
+          </div>
+        </div>
+      </div>
+      <dl class="fiche__chiffres">
+        <div><dt>Membre depuis</dt><dd>${depuis}</dd></div>
+        <div><dt>Covoiturages</dt><dd>${f.covoiturages}</dd></div>
+        <div><dt>Note</dt><dd>${f.nb_avis ? html`★ ${String(f.note_moyenne).replace('.', ',')} <small>(${f.nb_avis})</small>` : '—'}</dd></div>
+      </dl>
+      ${f.vehicule ? html`<p><b>Véhicule :</b> ${f.vehicule}</p>` : ''}
+      ${f.bio ? html`<p class="citation">« ${f.bio} »</p>` : ''}
+      ${f.avis.length ? html`<h4>Avis des passagers</h4>
+        <ul class="fiche__avis">${f.avis.map((a) => html`<li>
+          <span class="note">${'★'.repeat(a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
+          ${a.commentaire ? html`<p>${a.commentaire}</p>` : ''}</li>`)}</ul>` : ''}
+      ${f.id === moi.id ? '' : html`<button class="lien lien--danger" type="button" data-signaler="${f.id}">Signaler ce membre</button>`}`;
+    if (!fiche.open) fiche.showModal();
+  }
+
+  // Un clic sur un nom ouvre la fiche, où qu'on soit dans l'espace.
+  document.addEventListener('click', (e) => {
+    const lien = e.target.closest('[data-fiche]');
+    if (lien) { ouvrirFiche(lien.dataset.fiche).catch(Zoe.erreur); return; }
+    const signaler = e.target.closest('[data-signaler]');
+    if (!signaler) return;
+    const motif = prompt('Que s\'est-il passé ? Votre signalement est lu uniquement par l\'équipe Meet Zoe.');
+    if (motif === null) return;
+    occupe(signaler, async () => {
+      await req(sb.rpc('signaler_membre', { p_cible: signaler.dataset.signaler, p_motif: motif }));
+      toast('Signalement envoyé. Merci, notre équipe va l\'examiner.');
+    });
+  });
+  $('#voir-ma-fiche').addEventListener('click', () => ouvrirFiche(moi.id).catch(Zoe.erreur));
+
+  /* ---------- Photo de profil ---------- */
+  async function afficherPhoto() {
+    const urls = await Zoe.photos([moi.photo_path]);
+    $('#photo-apercu').innerHTML = Zoe.avatar(moi.prenom, moi.nom[0], urls[moi.photo_path], 'avatar--grand');
+    $('#photo-retirer').hidden = !moi.photo_path;
+  }
+
+  // Réduit l'image à un carré de 480 px. Au passage, les informations cachées
+  // dans le fichier (lieu, appareil) disparaissent.
+  async function reduireImage(fichier) {
+    const image = await createImageBitmap(fichier);
+    const cote = Math.min(image.width, image.height);
+    const toile = document.createElement('canvas');
+    toile.width = 480; toile.height = 480;
+    toile.getContext('2d').drawImage(image, (image.width - cote) / 2, (image.height - cote) / 2, cote, cote, 0, 0, 480, 480);
+    return new Promise((resoudre) => toile.toBlob(resoudre, 'image/jpeg', 0.85));
+  }
+
+  $('#photo-fichier').addEventListener('change', (e) => {
+    const fichier = e.target.files[0];
+    if (!fichier) return;
+    occupe(null, async () => {
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(fichier.type)) throw new Error('Choisissez une image JPG, PNG ou WebP.');
+      const image = await reduireImage(fichier);
+      const chemin = `${moi.id}/photo-${Date.now()}.jpg`;
+      await req(sb.storage.from('photos').upload(chemin, image, { contentType: 'image/jpeg' }));
+      const ancienne = moi.photo_path;
+      await req(sb.rpc('definir_photo', { p_path: chemin }));
+      if (ancienne) await sb.storage.from('photos').remove([ancienne]);
+      moi.photo_path = chemin;
+      e.target.value = '';
+      await afficherPhoto();
+      toast('Photo enregistrée.');
+    });
+  });
+
+  $('#photo-retirer').addEventListener('click', (e) => occupe(e.currentTarget, async () => {
+    const ancienne = moi.photo_path;
+    await req(sb.rpc('definir_photo', { p_path: null }));
+    if (ancienne) await sb.storage.from('photos').remove([ancienne]);
+    moi.photo_path = null;
+    await afficherPhoto();
+    toast('Photo retirée.');
+  }));
 
   $('#creer-invitation').addEventListener('click', (e) => occupe(e.currentTarget, async () => {
     const code = await req(sb.rpc('creer_invitation'));
@@ -676,7 +829,7 @@
     if (!confirm('Supprimer définitivement votre compte et toutes vos données ?')) return;
     occupe(e.currentTarget, async () => {
       // Efface d'abord les fichiers éventuellement déposés.
-      for (const dossier of ['justificatifs', 'documents-conducteur']) {
+      for (const dossier of ['justificatifs', 'documents-conducteur', 'photos']) {
         const { data: fichiers } = await sb.storage.from(dossier).list(moi.id);
         if (fichiers && fichiers.length) await sb.storage.from(dossier).remove(fichiers.map((f) => `${moi.id}/${f.name}`));
       }

@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Mon espace — Meet Zoe</title>
   <meta name="theme-color" content="#5425B8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -123,8 +125,8 @@
               <label>Prise de poste
                 <input type="time" id="r-heure" value="06:45" required>
               </label>
-              <label>Fin de poste <small>(facultatif)</small>
-                <input type="time" id="r-retour">
+              <label>Fin de poste
+                <input type="time" id="r-retour" value="14:15" required>
               </label>
             </div>
             <label>J'accepte d'arriver en avance ou d'attendre
@@ -211,11 +213,11 @@
             <label>Heure d'arrivée sur place
               <input type="time" name="heure_arrivee" required>
             </label>
-            <label>Heure de départ du retour <small>(facultatif)</small>
-              <input type="time" name="heure_retour">
+            <label>Heure de départ du retour
+              <input type="time" name="heure_retour" required>
             </label>
           </div>
-          <p class="aide">Indiquez l'heure de retour pour être trouvé par ceux qui finissent en même temps que vous. Horaires différents selon les jours ? Publiez un trajet par horaire : le bouton « Dupliquer » de « Mes trajets » vous évite de tout ressaisir.</p>
+          <p class="aide">L'heure de retour sert à vous faire trouver par ceux qui finissent en même temps que vous. Horaires différents selon les jours ? Publiez un trajet par horaire : le bouton « Dupliquer » de « Mes trajets » vous évite de tout ressaisir.</p>
           <div class="form__row">
             <label>Places proposées
               <input type="number" name="places" min="1" max="8" value="2" required>
@@ -272,11 +274,33 @@
             <label>Établissement ou institut
               <input type="text" name="etablissement_declare" maxlength="120">
             </label>
+            <label>Mon véhicule <small>(modèle et couleur, pour être reconnu au rendez-vous)</small>
+              <input type="text" name="vehicule" maxlength="60" placeholder="Ex. Clio grise">
+            </label>
+            <label>Quelques mots sur moi <small>(visibles des autres membres)</small>
+              <textarea name="bio" maxlength="300" rows="3" placeholder="Ex. En 2e année, ponctuelle, j'aime la musique en roulant."></textarea>
+            </label>
             <p class="aide" id="profil-resume"></p>
             <button class="btn btn--primary" type="submit">Enregistrer</button>
           </form>
 
           <div class="pile">
+            <div class="carte-form">
+              <h2>Ma photo <small>(facultative)</small></h2>
+              <div class="photo-profil">
+                <span id="photo-apercu"></span>
+                <div class="pile">
+                  <p class="aide">Elle n'est visible que des membres vérifiés. Vous pouvez la retirer à tout moment.</p>
+                  <div class="element__actions">
+                    <label class="btn btn--ghost btn--sm">Choisir une photo
+                      <input type="file" id="photo-fichier" accept="image/jpeg,image/png,image/webp" hidden>
+                    </label>
+                    <button class="lien lien--danger" type="button" id="photo-retirer" hidden>Retirer</button>
+                  </div>
+                </div>
+              </div>
+              <button class="lien" type="button" id="voir-ma-fiche">Voir ma fiche telle que les autres la voient</button>
+            </div>
             <div class="carte-form">
               <h2>Inviter un collègue</h2>
               <p class="aide">Vous pouvez inviter jusqu'à 5 personnes du secteur. En invitant quelqu'un, vous vous portez garant de son appartenance au secteur.</p>
@@ -294,6 +318,15 @@
     </div>
   </main>
 
+  <!-- Fiche d'un membre -->
+  <dialog class="fil fiche" id="fiche">
+    <header>
+      <h2>Fiche du membre</h2>
+      <button class="lien" type="button" id="fiche-fermer">Fermer</button>
+    </header>
+    <div class="fiche__corps" id="fiche-corps"></div>
+  </dialog>
+
   <!-- Messagerie d'une réservation -->
   <dialog class="fil" id="fil">
     <header>
@@ -301,6 +334,7 @@
       <button class="lien" type="button" id="fil-fermer" aria-label="Fermer">Fermer</button>
     </header>
     <div class="fil__messages" id="fil-messages"></div>
+    <p class="fil__clos aide" id="fil-clos" hidden>Cette conversation est terminée.</p>
     <form id="fil-form">
       <input type="text" name="contenu" maxlength="2000" placeholder="Votre message…" aria-label="Votre message" required>
       <button class="btn btn--primary btn--sm" type="submit">Envoyer</button>

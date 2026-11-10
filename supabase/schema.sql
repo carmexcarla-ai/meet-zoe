@@ -56,6 +56,16 @@ alter table public.profils add column if not exists permis_path text;
 alter table public.profils add column if not exists identite_path text;
 alter table public.profils add column if not exists identite_type text;
 alter table public.profils add column if not exists conducteur_valide_le timestamptz;
+-- Fiche visible des autres membres : présentation, véhicule, photo facultative.
+alter table public.profils add column if not exists bio text;
+alter table public.profils add column if not exists vehicule text;
+alter table public.profils add column if not exists photo_path text;
+alter table public.profils drop constraint if exists profils_fiche_check;
+alter table public.profils add constraint profils_fiche_check
+  check (char_length(bio) <= 300 and char_length(vehicule) <= 60);
+-- Essais de codes ratés dans la journée (contre les devinettes en série).
+alter table public.profils add column if not exists essais_code integer not null default 0;
+alter table public.profils add column if not exists essais_le date;
 alter table public.profils drop constraint if exists profils_conducteur_statut_check;
 alter table public.profils add constraint profils_conducteur_statut_check
   check (conducteur_statut in ('non','en_attente','valide','refuse'));
@@ -161,6 +171,40 @@ create table if not exists public.besoins (
 );
 create index if not exists besoins_membre_idx on public.besoins (membre_id);
 
+-- Avis laissés par un passager sur son conducteur après un covoiturage accepté.
+create table if not exists public.avis (
+  id             uuid primary key default gen_random_uuid(),
+  reservation_id uuid references public.reservations (id) on delete set null,
+  auteur_id      uuid not null references public.profils (id) on delete cascade,
+  cible_id       uuid not null references public.profils (id) on delete cascade,
+  note           smallint not null check (note between 1 and 5),
+  commentaire    text check (char_length(commentaire) <= 500),
+  masque         boolean not null default false,
+  created_at     timestamptz not null default now(),
+  unique (reservation_id, auteur_id)
+);
+create index if not exists avis_cible_idx on public.avis (cible_id);
+
+-- Signalements d'un membre, traités par l'administration.
+create table if not exists public.signalements (
+  id         uuid primary key default gen_random_uuid(),
+  auteur_id  uuid references public.profils (id) on delete set null,
+  cible_id   uuid not null references public.profils (id) on delete cascade,
+  motif      text not null check (char_length(motif) between 10 and 1000),
+  statut     text not null default 'ouvert' check (statut in ('ouvert','traite')),
+  created_at timestamptz not null default now()
+);
+
+-- Journal des actions d'administration : qui a fait quoi, et quand.
+create table if not exists public.journal_admin (
+  id         bigint generated always as identity primary key,
+  admin_id   uuid,
+  action     text not null,
+  cible_id   uuid,
+  detail     text,
+  created_at timestamptz not null default now()
+);
+
 create table if not exists public.demandes_contact (
   id         uuid primary key default gen_random_uuid(),
   nom        text not null check (char_length(nom) between 1 and 120),
@@ -203,6 +247,17 @@ language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from reservations r join trajets t on t.id = r.trajet_id
     where r.id = p_reservation and auth.uid() in (r.passager_id, t.conducteur_id)
+  );
+$$;
+
+-- On ne peut écrire que dans une conversation en cours : plus après un refus
+-- ou une annulation.
+create or replace function public.conversation_ouverte(p_reservation uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from reservations r join trajets t on t.id = r.trajet_id
+    where r.id = p_reservation and auth.uid() in (r.passager_id, t.conducteur_id)
+      and r.statut in ('contact', 'demandee', 'acceptee')
   );
 $$;
 
@@ -262,8 +317,26 @@ create trigger on_auth_user_created
 -- 4. VÉRIFICATION DES MEMBRES
 -- ---------------------------------------------------------------------
 
+-- Compte un essai raté. Au-delà de 10 dans la journée, on bloque jusqu'au lendemain.
+create or replace function public.essai_rate(p_message text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  update profils set
+    essais_code = case when essais_le = current_date then essais_code + 1 else 1 end,
+    essais_le = current_date
+  where id = auth.uid();
+  return jsonb_build_object('ok', false, 'message', p_message);
+end;
+$$;
+
+create or replace function public.trop_d_essais() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profils where id = auth.uid() and essais_le = current_date and essais_code >= 10);
+$$;
+
 -- 4a. Code d'établissement : contrôle l'abonnement et le quota.
-create or replace function public.utiliser_code(p_code text) returns text
+drop function if exists public.utiliser_code(text);
+create or replace function public.utiliser_code(p_code text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_profil profils;
@@ -275,30 +348,33 @@ begin
   if v_profil.id is null then raise exception 'Connectez-vous pour utiliser un code.'; end if;
   if v_profil.statut = 'verifie' then raise exception 'Votre compte est déjà vérifié.'; end if;
   if v_profil.statut = 'suspendu' then raise exception 'Votre compte est suspendu.'; end if;
+  if trop_d_essais() then
+    return jsonb_build_object('ok', false, 'message', 'Trop d''essais aujourd''hui. Réessayez demain ou contactez votre établissement.');
+  end if;
 
   select * into v_code from codes_acces where code = upper(trim(p_code)) for update;
-  if v_code.id is null or not v_code.actif then raise exception 'Ce code n''est pas valide.'; end if;
-  if v_code.expire_le is not null and v_code.expire_le < current_date then raise exception 'Ce code a expiré.'; end if;
+  if v_code.id is null or not v_code.actif then return essai_rate('Ce code n''est pas valide.'); end if;
+  if v_code.expire_le is not null and v_code.expire_le < current_date then return essai_rate('Ce code a expiré.'); end if;
   if v_code.max_utilisations is not null and v_code.utilisations >= v_code.max_utilisations then
-    raise exception 'Ce code a atteint son nombre maximal d''utilisations.';
+    return jsonb_build_object('ok', false, 'message', 'Ce code a atteint son nombre maximal d''utilisations.');
   end if;
 
   select * into v_etab from etablissements where id = v_code.etablissement_id for update;
   if v_etab.abonnement_statut not in ('essai','actif')
      or (v_etab.abonnement_fin is not null and v_etab.abonnement_fin < current_date) then
-    raise exception 'L''abonnement de cet établissement n''est pas actif.';
+    return jsonb_build_object('ok', false, 'message', 'L''abonnement de cet établissement n''est pas actif.');
   end if;
 
   select count(*) into v_nb from profils
   where etablissement_id = v_etab.id and role = 'membre' and statut = 'verifie';
   if v_nb >= v_etab.quota then
-    raise exception 'Le quota de membres de cet établissement est atteint.';
+    return jsonb_build_object('ok', false, 'message', 'Le quota de membres de cet établissement est atteint.');
   end if;
 
   update codes_acces set utilisations = utilisations + 1 where id = v_code.id;
-  update profils set statut = 'verifie', methode_verif = 'code', etablissement_id = v_etab.id, verifie_le = now()
+  update profils set statut = 'verifie', methode_verif = 'code', etablissement_id = v_etab.id, verifie_le = now(), essais_code = 0
   where id = v_profil.id;
-  return v_etab.nom;
+  return jsonb_build_object('ok', true, 'etablissement', v_etab.nom);
 end;
 $$;
 
@@ -318,7 +394,8 @@ begin
 end;
 $$;
 
-create or replace function public.utiliser_invitation(p_code text) returns void
+drop function if exists public.utiliser_invitation(text);
+create or replace function public.utiliser_invitation(p_code text) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare
   v_profil profils;
@@ -328,16 +405,20 @@ begin
   if v_profil.id is null then raise exception 'Connectez-vous pour utiliser une invitation.'; end if;
   if v_profil.statut = 'verifie' then raise exception 'Votre compte est déjà vérifié.'; end if;
   if v_profil.statut = 'suspendu' then raise exception 'Votre compte est suspendu.'; end if;
+  if trop_d_essais() then
+    return jsonb_build_object('ok', false, 'message', 'Trop d''essais aujourd''hui. Réessayez demain.');
+  end if;
 
   select * into v_inv from invitations where code = upper(trim(p_code)) for update;
-  if v_inv.id is null or v_inv.utilise_par is not null then raise exception 'Cette invitation n''est pas valide.'; end if;
+  if v_inv.id is null or v_inv.utilise_par is not null then return essai_rate('Cette invitation n''est pas valide.'); end if;
   if not exists (select 1 from profils where id = v_inv.cree_par and statut = 'verifie') then
-    raise exception 'Cette invitation n''est plus valable.';
+    return essai_rate('Cette invitation n''est plus valable.');
   end if;
 
   update invitations set utilise_par = v_profil.id, utilise_le = now() where id = v_inv.id;
-  update profils set statut = 'verifie', methode_verif = 'invitation', invite_par = v_inv.cree_par, verifie_le = now()
+  update profils set statut = 'verifie', methode_verif = 'invitation', invite_par = v_inv.cree_par, verifie_le = now(), essais_code = 0
   where id = v_profil.id;
+  return jsonb_build_object('ok', true);
 end;
 $$;
 
@@ -445,6 +526,7 @@ $$;
 -- Recherche sur une période, aller et retour, avec une note de compatibilité :
 -- 40 points pour le détour, 25 pour les horaires, 20 pour les jours couverts,
 -- 15 si tous les trajets demandés (aller, et retour s'il est demandé) sont assurés.
+drop function if exists public.rechercher_trajets_periode(double precision, double precision, double precision, double precision, date, date, smallint[], time, time, integer);
 create or replace function public.rechercher_trajets_periode(
   p_dep_lat double precision, p_dep_lng double precision,
   p_dest_lat double precision, p_dest_lng double precision,
@@ -458,7 +540,8 @@ returns table (
   places smallint, places_restantes integer, commentaire text,
   detour_km integer, aller_ok boolean, retour_ok boolean, avance_min integer, attente_min integer,
   dates_communes integer, dates_demandees integer, jours_communs smallint[],
-  score integer, ma_reservation text
+  score integer, ma_reservation text,
+  note_moyenne numeric, nb_avis integer, photo_path text
 )
 language sql stable security definer set search_path = public as $$
   with demande as (
@@ -482,7 +565,10 @@ language sql stable security definer set search_path = public as $$
       + 20 * least(1, c.dates_communes::numeric / demande.n)
       + 15 * (case when c.aller_ok and (p_retour is null or c.retour_ok) then 1 else 0 end)
     )::integer as score,
-    (select r.statut from reservations r where r.trajet_id = t.id and r.passager_id = auth.uid())
+    (select r.statut from reservations r where r.trajet_id = t.id and r.passager_id = auth.uid()),
+    (select round(avg(a.note), 1) from avis a where a.cible_id = t.conducteur_id and not a.masque),
+    (select count(*) from avis a where a.cible_id = t.conducteur_id and not a.masque)::integer,
+    p.photo_path
   from trajets_compatibles(auth.uid(), p_dep_lat, p_dep_lng, p_dest_lat, p_dest_lng,
          p_debut, p_fin, p_jours, p_arrivee, p_retour, least(greatest(p_marge, 15), 180)) c
   join trajets t on t.id = c.trajet_id
@@ -597,16 +683,17 @@ end;
 $$;
 
 -- Boîte de réception : toutes mes conversations, la plus récente d'abord.
+drop function if exists public.mes_conversations();
 create or replace function public.mes_conversations()
 returns table (
   reservation_id uuid, statut text, je_conduis boolean,
-  autre_prenom text, autre_initiale text,
+  autre_id uuid, autre_prenom text, autre_initiale text,
   depart_ville text, destination_nom text,
   dernier_message text, dernier_le timestamptz, dernier_de_moi boolean, non_lus integer
 )
 language sql stable security definer set search_path = public as $$
   select r.id, r.statut, t.conducteur_id = auth.uid(),
-    a.prenom, upper(left(a.nom, 1)),
+    a.id, a.prenom, upper(left(a.nom, 1)),
     t.depart_ville, t.destination_nom,
     d.contenu, d.created_at, d.expediteur_id = auth.uid(),
     (select count(*) from messages m
@@ -646,7 +733,7 @@ begin
   select * into v_trajet from trajets where id = v_res.trajet_id for update;
   if v_res.id is null or v_trajet.conducteur_id <> auth.uid() then raise exception 'Réservation introuvable.'; end if;
   if v_res.statut = 'annulee' then raise exception 'Le passager a annulé sa demande.'; end if;
-  if v_res.statut = 'contact' then raise exception 'Ce membre n''a pas demandé de place.'; end if;
+  if v_res.statut = 'contact' and p_accepter then raise exception 'Ce membre n''a pas demandé de place.'; end if;
 
   if p_accepter then
     select count(*) into v_prises from reservations
@@ -725,6 +812,175 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------
+-- 6 bis. FICHE DES MEMBRES, AVIS ET SIGNALEMENTS
+-- ---------------------------------------------------------------------
+
+-- Inscrit une action dans le journal d'administration (usage interne).
+create or replace function public.journaliser(p_action text, p_cible uuid, p_detail text) returns void
+language sql security definer set search_path = public as $$
+  insert into journal_admin (admin_id, action, cible_id, detail) values (auth.uid(), p_action, p_cible, left(p_detail, 300));
+$$;
+
+-- Ce qu'un membre vérifié voit d'un autre : jamais le nom complet,
+-- l'e-mail, le téléphone ni les documents.
+create or replace function public.fiche_membre(p_membre uuid) returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'id', p.id,
+    'prenom', p.prenom,
+    'initiale', upper(left(p.nom, 1)),
+    'categorie', p.categorie,
+    'etablissement', coalesce(e.nom, p.etablissement_declare),
+    'conducteur_valide', p.conducteur_statut = 'valide',
+    'membre_depuis', p.created_at,
+    'vehicule', p.vehicule,
+    'bio', p.bio,
+    'photo_path', p.photo_path,
+    'covoiturages', (select count(*) from reservations r join trajets t on t.id = r.trajet_id
+        where r.statut = 'acceptee' and p.id in (r.passager_id, t.conducteur_id)),
+    'note_moyenne', (select round(avg(a.note), 1) from avis a where a.cible_id = p.id and not a.masque),
+    'nb_avis', (select count(*) from avis a where a.cible_id = p.id and not a.masque),
+    'avis', coalesce((
+      select jsonb_agg(x order by x.created_at desc) from (
+        select a.note, a.commentaire, a.created_at, au.prenom || ' ' || upper(left(au.nom, 1)) || '.' as auteur
+        from avis a join profils au on au.id = a.auteur_id
+        where a.cible_id = p.id and not a.masque
+        order by a.created_at desc limit 10
+      ) x), '[]'::jsonb)
+  )
+  from profils p
+  left join etablissements e on e.id = p.etablissement_id
+  where p.id = p_membre and p.statut = 'verifie' and est_verifie();
+$$;
+
+-- Un passager note son conducteur, une fois le covoiturage accepté et commencé.
+create or replace function public.laisser_avis(p_reservation uuid, p_note integer, p_commentaire text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_res    reservations;
+  v_trajet trajets;
+begin
+  if not est_verifie() then raise exception 'Accès réservé aux membres vérifiés.'; end if;
+  if p_note is null or p_note not between 1 and 5 then raise exception 'La note va de 1 à 5.'; end if;
+  select * into v_res from reservations where id = p_reservation and passager_id = auth.uid();
+  if v_res.id is null or v_res.statut <> 'acceptee' then raise exception 'Vous ne pouvez noter qu''un covoiturage accepté.'; end if;
+  select * into v_trajet from trajets where id = v_res.trajet_id;
+  if v_trajet.date_debut > current_date then raise exception 'Vous pourrez laisser un avis après le premier trajet.'; end if;
+
+  insert into avis (reservation_id, auteur_id, cible_id, note, commentaire)
+  values (v_res.id, auth.uid(), v_trajet.conducteur_id, p_note, left(nullif(trim(p_commentaire), ''), 500))
+  on conflict (reservation_id, auteur_id)
+  do update set note = excluded.note, commentaire = excluded.commentaire, masque = false, created_at = now();
+end;
+$$;
+
+-- Signaler un membre à l'administration (5 signalements par jour au plus).
+create or replace function public.signaler_membre(p_cible uuid, p_motif text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not est_verifie() then raise exception 'Accès réservé aux membres vérifiés.'; end if;
+  if p_cible = auth.uid() then raise exception 'Vous ne pouvez pas vous signaler vous-même.'; end if;
+  if char_length(coalesce(trim(p_motif), '')) < 10 then raise exception 'Décrivez le problème en quelques mots (10 caractères au moins).'; end if;
+  if not exists (select 1 from profils where id = p_cible) then raise exception 'Membre introuvable.'; end if;
+  if (select count(*) from signalements where auteur_id = auth.uid() and created_at > now() - interval '1 day') >= 5 then
+    raise exception 'Vous avez déjà envoyé plusieurs signalements aujourd''hui.';
+  end if;
+  insert into signalements (auteur_id, cible_id, motif) values (auth.uid(), p_cible, left(trim(p_motif), 1000));
+end;
+$$;
+
+-- Enregistre (ou retire, avec NULL) la photo de profil.
+create or replace function public.definir_photo(p_path text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Connectez-vous.'; end if;
+  if p_path is not null and p_path not like auth.uid()::text || '/%' then raise exception 'Fichier invalide.'; end if;
+  update profils set photo_path = p_path where id = auth.uid();
+end;
+$$;
+
+-- Modération : masquer un avis, retirer une photo.
+create or replace function public.admin_masquer_avis(p_avis uuid, p_masquer boolean) returns void
+language plpgsql security definer set search_path = public as $$
+declare v_cible uuid;
+begin
+  if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
+  update avis set masque = p_masquer where id = p_avis returning cible_id into v_cible;
+  if not found then raise exception 'Avis introuvable.'; end if;
+  perform journaliser(case when p_masquer then 'Avis masqué' else 'Avis réaffiché' end, v_cible, null);
+end;
+$$;
+
+create or replace function public.admin_retirer_photo(p_membre uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
+  update profils set photo_path = null where id = p_membre;
+  perform journaliser('Photo retirée', p_membre, null);
+end;
+$$;
+
+-- Liste de modération : avis récents avec les noms (administration seulement).
+create or replace function public.admin_avis()
+returns table (id uuid, note smallint, commentaire text, masque boolean, created_at timestamptz, auteur text, cible text, cible_id uuid)
+language sql stable security definer set search_path = public as $$
+  select a.id, a.note, a.commentaire, a.masque, a.created_at,
+         au.prenom || ' ' || au.nom, c.prenom || ' ' || c.nom, c.id
+  from avis a join profils au on au.id = a.auteur_id join profils c on c.id = a.cible_id
+  where est_admin()
+  order by a.created_at desc limit 100;
+$$;
+
+-- ---------------------------------------------------------------------
+-- 6 ter. GARDE-FOUS CONTRE LES ABUS
+-- ---------------------------------------------------------------------
+
+-- Messages : 20 par minute et 400 par jour au plus, par membre.
+create or replace function public.limiter_messages() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from messages where expediteur_id = new.expediteur_id and created_at > now() - interval '1 minute') >= 20
+     or (select count(*) from messages where expediteur_id = new.expediteur_id and created_at > now() - interval '1 day') >= 400 then
+    raise exception 'Vous envoyez trop de messages. Patientez un instant.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists messages_limite on public.messages;
+create trigger messages_limite before insert on public.messages
+  for each row execute function public.limiter_messages();
+
+-- Formulaire de contact public : 40 demandes par heure au plus, tous visiteurs confondus.
+create or replace function public.limiter_contacts() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from demandes_contact where created_at > now() - interval '1 hour') >= 40 then
+    raise exception 'Trop de demandes pour le moment. Réessayez un peu plus tard.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists contacts_limite on public.demandes_contact;
+create trigger contacts_limite before insert on public.demandes_contact
+  for each row execute function public.limiter_contacts();
+
+-- Journal : toute création, modification ou suppression d'établissement.
+create or replace function public.journal_etablissements() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  insert into journal_admin (admin_id, action, detail)
+  values (auth.uid(),
+    case tg_op when 'INSERT' then 'Établissement créé' when 'UPDATE' then 'Établissement modifié' else 'Établissement supprimé' end,
+    case when tg_op = 'DELETE' then old.nom
+         else new.nom || ' · quota ' || new.quota || ' · abonnement ' || new.abonnement_statut end);
+  return null;
+end;
+$$;
+drop trigger if exists etablissements_journal on public.etablissements;
+create trigger etablissements_journal after insert or update or delete on public.etablissements
+  for each row execute function public.journal_etablissements();
+
+-- ---------------------------------------------------------------------
 -- 7. ADMINISTRATION
 -- ---------------------------------------------------------------------
 
@@ -741,6 +997,7 @@ begin
     justificatif_path = case when p_statut in ('verifie','refuse') then null else justificatif_path end
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
+  perform journaliser('Statut du membre : ' || p_statut, p_membre, null);
 end;
 $$;
 
@@ -756,6 +1013,7 @@ begin
     permis_path = null, identite_path = null
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
+  perform journaliser(case when p_valider then 'Conducteur validé' else 'Conducteur refusé' end, p_membre, null);
   -- Un conducteur refusé ne peut plus proposer ses trajets.
   if not p_valider then update trajets set actif = false where conducteur_id = p_membre; end if;
 end;
@@ -777,6 +1035,7 @@ begin
     verifie_le = case when p_role in ('partenaire','admin') then coalesce(verifie_le, now()) else verifie_le end
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
+  perform journaliser('Rôle du membre : ' || p_role, p_membre, null);
 end;
 $$;
 
@@ -820,18 +1079,24 @@ alter table public.reservations     enable row level security;
 alter table public.messages         enable row level security;
 alter table public.demandes_contact enable row level security;
 alter table public.besoins          enable row level security;
+alter table public.avis             enable row level security;
+alter table public.signalements     enable row level security;
+alter table public.journal_admin    enable row level security;
 
 -- On retire tous les droits par défaut, puis on n'accorde que le nécessaire.
 revoke all on public.etablissements, public.profils, public.codes_acces, public.invitations,
               public.trajets, public.reservations, public.messages, public.demandes_contact,
-              public.besoins, public.membres, public.etablissements_publics
+              public.besoins, public.avis, public.signalements, public.journal_admin,
+              public.membres, public.etablissements_publics
   from anon, authenticated;
 
 grant select on public.membres, public.etablissements_publics to authenticated;
 
 grant select, insert, update, delete on public.etablissements to authenticated;
 grant select on public.profils to authenticated;
-grant update (prenom, nom, ville, telephone, etablissement_declare) on public.profils to authenticated;
+grant update (prenom, nom, ville, telephone, etablissement_declare, bio, vehicule) on public.profils to authenticated;
+grant select on public.avis, public.signalements, public.journal_admin to authenticated;
+grant update (statut) on public.signalements to authenticated;
 grant select on public.codes_acces to authenticated;
 grant update (libelle, max_utilisations, expire_le, actif) on public.codes_acces to authenticated;
 grant delete on public.codes_acces to authenticated;
@@ -916,6 +1181,22 @@ drop policy if exists besoins_suppression on public.besoins;
 create policy besoins_suppression on public.besoins for delete to authenticated
   using (membre_id = auth.uid());
 
+-- Avis : on lit les siens ; les autres passent par la fiche du membre.
+drop policy if exists avis_lecture on public.avis;
+create policy avis_lecture on public.avis for select to authenticated
+  using (auteur_id = auth.uid() or public.est_admin());
+
+-- Signalements et journal : réservés à l'administration.
+drop policy if exists signalements_lecture on public.signalements;
+create policy signalements_lecture on public.signalements for select to authenticated
+  using (public.est_admin());
+drop policy if exists signalements_traitement on public.signalements;
+create policy signalements_traitement on public.signalements for update to authenticated
+  using (public.est_admin()) with check (public.est_admin());
+drop policy if exists journal_lecture on public.journal_admin;
+create policy journal_lecture on public.journal_admin for select to authenticated
+  using (public.est_admin());
+
 -- Réservations : visibles du passager et du conducteur concernés.
 drop policy if exists reservations_lecture on public.reservations;
 create policy reservations_lecture on public.reservations for select to authenticated
@@ -927,7 +1208,7 @@ create policy messages_lecture on public.messages for select to authenticated
   using (public.participe_reservation(reservation_id));
 drop policy if exists messages_envoi on public.messages;
 create policy messages_envoi on public.messages for insert to authenticated
-  with check (public.est_verifie() and expediteur_id = auth.uid() and public.participe_reservation(reservation_id));
+  with check (public.est_verifie() and expediteur_id = auth.uid() and public.conversation_ouverte(reservation_id));
 
 -- Demandes de contact : tout le monde peut écrire, seule l'administration lit.
 drop policy if exists contact_envoi on public.demandes_contact;
@@ -949,7 +1230,9 @@ grant execute on function
   public.est_verifie(), public.est_admin(), public.est_conducteur(), public.mon_etablissement_gere(),
   public.soumettre_documents_conducteur(text, text, text), public.admin_valider_conducteur(uuid, boolean),
   public.contacter_conducteur(uuid, text), public.mes_conversations(), public.marquer_lu(uuid),
-  public.participe_reservation(uuid),
+  public.participe_reservation(uuid), public.conversation_ouverte(uuid),
+  public.fiche_membre(uuid), public.laisser_avis(uuid, integer, text), public.signaler_membre(uuid, text),
+  public.definir_photo(text), public.admin_masquer_avis(uuid, boolean), public.admin_retirer_photo(uuid), public.admin_avis(),
   public.utiliser_code(text), public.creer_invitation(), public.utiliser_invitation(text),
   public.soumettre_justificatif(text),
   public.rechercher_trajets_periode(double precision, double precision, double precision, double precision, date, date, smallint[], time, time, integer),
@@ -997,3 +1280,21 @@ create policy documents_conducteur_lecture on storage.objects for select to auth
 drop policy if exists documents_conducteur_suppression on storage.objects;
 create policy documents_conducteur_suppression on storage.objects for delete to authenticated
   using (bucket_id = 'documents-conducteur' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));
+
+-- ---------------------------------------------------------------------
+-- 12. PHOTOS DE PROFIL (visibles des seuls membres vérifiés)
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('photos', 'photos', false, 1048576, array['image/jpeg','image/png','image/webp'])
+on conflict (id) do nothing;
+
+drop policy if exists photos_depot on storage.objects;
+create policy photos_depot on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists photos_lecture on storage.objects;
+create policy photos_lecture on storage.objects for select to authenticated
+  using (bucket_id = 'photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_verifie()));
+drop policy if exists photos_suppression on storage.objects;
+create policy photos_suppression on storage.objects for delete to authenticated
+  using (bucket_id = 'photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));

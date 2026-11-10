@@ -121,6 +121,25 @@ séjour). L'administration les consulte dans **Membres** > **Conducteurs à
 valider**, puis valide ou refuse. Les fichiers sont effacés dès la décision ;
 seule la date de validation est conservée. Les passagers ne sont pas concernés.
 
+**Fiche des membres.** Un clic sur un nom ouvre la fiche : prénom et initiale,
+statut, établissement, badges de vérification, ancienneté, nombre de
+covoiturages, véhicule, présentation, photo facultative, note et avis. Le nom
+complet, l'e-mail, le téléphone et les documents n'y figurent jamais. Les
+photos sont réduites à 480 px avant envoi et visibles des seuls membres
+vérifiés.
+
+**Avis.** Un passager dont la place a été acceptée peut noter son conducteur
+(1 à 5) et laisser un commentaire, à partir du premier jour du trajet.
+
+**Signalements et modération.** Tout membre peut signaler un autre membre
+depuis sa fiche. L'onglet **Modération** de l'administration liste les
+signalements et les avis récents : on peut suspendre un membre, masquer un
+avis, retirer une photo.
+
+**Journal.** Chaque action d'administration (validation, refus, suspension,
+rôle, avis masqué, photo retirée, établissement créé ou modifié) est inscrite
+dans un journal consultable, non modifiable depuis le site.
+
 **Messagerie.** Un membre peut poser une question au conducteur d'un trajet
 avant de demander une place. L'onglet **Messages** regroupe toutes les
 conversations et signale les messages non lus. On ne peut écrire à quelqu'un
@@ -154,6 +173,29 @@ date de fin de chaque établissement. Il n'y a pas de paiement en ligne.
 `geo.api.gouv.fr` (gratuit, sans compte). Seul le nom tapé lui est envoyé.
 
 ## Sécurité et vie privée
+
+**Protections en place**
+
+- Limites anti-abus : 10 essais de code ratés par jour, 20 messages par
+  minute, 5 signalements par jour, 40 demandes de contact par heure.
+- Politique de sécurité du contenu sur chaque page : aucun script extérieur ne
+  peut s'exécuter, et le site refuse d'être affiché dans une autre page.
+- Champ piège contre les robots sur le formulaire de contact.
+- On ne peut plus écrire dans une conversation après un refus ou une annulation.
+
+**À faire par le propriétaire du site** (une fois, hors du code)
+
+- Activer la double authentification sur les comptes Supabase, GitHub et Render.
+- Supabase > Authentication : longueur minimale du mot de passe (8), refus des
+  mots de passe compromis, protection anti-robot (CAPTCHA) à l'inscription.
+- Render > Headers : ajouter `X-Frame-Options: DENY`,
+  `X-Content-Type-Options: nosniff` et
+  `Strict-Transport-Security: max-age=31536000` sur le chemin `/*`.
+- Prévoir des sauvegardes de la base (l'offre gratuite de Supabase n'en fait
+  pas automatiquement).
+- Faire auditer le site par un professionnel avant l'ouverture au public.
+
+**Règles d'accès**
 
 - Toutes les règles d'accès sont appliquées par la base de données
   (`supabase/schema.sql`), pas par le navigateur.

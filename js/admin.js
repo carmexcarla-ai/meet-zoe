@@ -38,7 +38,8 @@
     $('#membres').innerHTML = membres.length
       ? html`${membres.map((m) => html`
         <tr data-membre="${m.id}">
-          <td><strong>${m.prenom} ${m.nom}</strong><br><small>${m.email}</small><br><small>Inscrit le ${Zoe.date(m.created_at.slice(0, 10))}</small></td>
+          <td><strong>${m.prenom} ${m.nom}</strong><br><small>${m.email}</small><br><small>Inscrit le ${Zoe.date(m.created_at.slice(0, 10))}</small>
+            ${m.photo_path ? html`<br><button class="lien" type="button" data-action="photo-voir">Voir la photo</button> <button class="lien lien--danger" type="button" data-action="photo-retirer">Retirer</button>` : ''}</td>
           <td>${Zoe.CATEGORIES[m.categorie]}<br><small>${nomEtab(m.etablissement_id) || m.etablissement_declare || '—'}</small></td>
           <td>${METHODES[m.methode_verif] || 'Aucune démarche'}
             ${m.justificatif_path ? html`<br><button class="lien" type="button" data-action="justificatif">Voir le justificatif</button>` : ''}
@@ -106,6 +107,19 @@
         const fichiers = [membre.permis_path, membre.identite_path].filter(Boolean);
         if (fichiers.length) await sb.storage.from('documents-conducteur').remove(fichiers);
         toast(valider ? 'Conducteur validé. Documents effacés.' : 'Conducteur refusé. Documents effacés.');
+        await chargerMembres();
+        return;
+      }
+      if (action === 'photo-voir') {
+        const { signedUrl } = await req(sb.storage.from('photos').createSignedUrl(membre.photo_path, 120));
+        window.open(signedUrl, '_blank', 'noopener');
+        return;
+      }
+      if (action === 'photo-retirer') {
+        if (!confirm(`Retirer la photo de ${membre.prenom} ${membre.nom} ?`)) return;
+        await req(sb.rpc('admin_retirer_photo', { p_membre: membre.id }));
+        await sb.storage.from('photos').remove([membre.photo_path]);
+        toast('Photo retirée.');
         await chargerMembres();
         return;
       }
@@ -255,11 +269,97 @@
     });
   });
 
+  /* ---------- 4. Modération : signalements et avis ---------- */
+  async function chargerModeration() {
+    const signalements = await req(sb.from('signalements').select('*').order('created_at', { ascending: false }).limit(100));
+    const ids = [...new Set(signalements.flatMap((s) => [s.auteur_id, s.cible_id]).filter(Boolean))];
+    const noms = ids.length ? Object.fromEntries((await req(sb.from('profils').select('id, prenom, nom, statut').in('id', ids))).map((p) => [p.id, p])) : {};
+    const nom = (id) => (noms[id] ? `${noms[id].prenom} ${noms[id].nom}` : 'Compte supprimé');
+
+    $('#signalements').innerHTML = signalements.length
+      ? html`${signalements.map((s) => html`
+        <article class="element" data-signalement="${s.id}" data-cible="${s.cible_id}" data-traite="${s.statut === 'traite'}">
+          <div class="element__tete">
+            <div>
+              <strong>${nom(s.cible_id)}</strong> signalé par ${nom(s.auteur_id)}
+              <p>${Zoe.dateHeure(s.created_at)}${noms[s.cible_id] ? ` · compte ${Zoe.STATUTS[noms[s.cible_id].statut].toLowerCase()}` : ''}</p>
+              <p class="citation">${s.motif}</p>
+            </div>
+            <div class="element__actions">
+              <span class="badge ${s.statut === 'traite' ? 'badge--acceptee' : 'badge--demandee'}">${s.statut === 'traite' ? 'Traité' : 'À traiter'}</span>
+              ${noms[s.cible_id] && noms[s.cible_id].statut === 'verifie' ? html`<button class="lien lien--danger" type="button" data-action="suspendre">Suspendre le membre</button>` : ''}
+              <button class="lien" type="button" data-action="basculer">${s.statut === 'traite' ? 'Rouvrir' : 'Marquer traité'}</button>
+            </div>
+          </div>
+        </article>`)}`
+      : html`<div class="empty">Aucun signalement.</div>`;
+
+    const ouverts = signalements.filter((s) => s.statut === 'ouvert').length;
+    $('#pastille-moderation').hidden = ouverts === 0;
+    $('#pastille-moderation').textContent = ouverts;
+
+    const avis = await req(sb.rpc('admin_avis'));
+    $('#avis').innerHTML = avis.length
+      ? html`${avis.map((a) => html`
+        <article class="element" data-avis="${a.id}" data-masque="${a.masque}">
+          <div class="element__tete">
+            <div>
+              <strong>${'★'.repeat(a.note)}</strong> pour ${a.cible}, par ${a.auteur}
+              <p>${Zoe.dateHeure(a.created_at)}</p>
+              ${a.commentaire ? html`<p class="citation">${a.commentaire}</p>` : ''}
+            </div>
+            <div class="element__actions">
+              ${a.masque ? html`<span class="badge badge--annulee">Masqué</span>` : ''}
+              <button class="lien ${a.masque ? '' : 'lien--danger'}" type="button" data-action="masquer">${a.masque ? 'Réafficher' : 'Masquer'}</button>
+            </div>
+          </div>
+        </article>`)}`
+      : html`<div class="empty">Aucun avis pour l'instant.</div>`;
+  }
+
+  $('[data-panneau="moderation"]').addEventListener('click', (e) => {
+    const bouton = e.target.closest('[data-action]');
+    if (!bouton) return;
+    const carte = bouton.closest('.element');
+    const action = bouton.dataset.action;
+    if (action === 'suspendre' && !confirm('Suspendre ce membre ? Il perdra immédiatement l\'accès aux trajets.')) return;
+    occupe(bouton, async () => {
+      if (action === 'masquer') {
+        await req(sb.rpc('admin_masquer_avis', { p_avis: carte.dataset.avis, p_masquer: carte.dataset.masque !== 'true' }));
+      } else if (action === 'suspendre') {
+        await req(sb.rpc('admin_definir_statut', { p_membre: carte.dataset.cible, p_statut: 'suspendu' }));
+        toast('Membre suspendu.');
+      } else {
+        await req(sb.from('signalements').update({ statut: carte.dataset.traite === 'true' ? 'ouvert' : 'traite' }).eq('id', carte.dataset.signalement));
+      }
+      await chargerModeration();
+    });
+  });
+
+  /* ---------- 5. Journal ---------- */
+  async function chargerJournal() {
+    const lignes = await req(sb.from('journal_admin').select('*').order('created_at', { ascending: false }).limit(200));
+    const ids = [...new Set(lignes.flatMap((l) => [l.admin_id, l.cible_id]).filter(Boolean))];
+    const noms = ids.length ? Object.fromEntries((await req(sb.from('profils').select('id, prenom, nom').in('id', ids))).map((p) => [p.id, `${p.prenom} ${p.nom}`])) : {};
+    $('#journal').innerHTML = lignes.length
+      ? html`${lignes.map((l) => html`<tr>
+          <td>${Zoe.dateHeure(l.created_at)}</td>
+          <td>${noms[l.admin_id] || '—'}</td>
+          <td>${l.action}</td>
+          <td>${l.cible_id ? (noms[l.cible_id] || 'Compte supprimé') : (l.detail || '—')}</td>
+        </tr>`)}`
+      : html`<tr><td colspan="4" class="aide">Aucune action enregistrée.</td></tr>`;
+  }
+
   /* ---------- Démarrage ---------- */
-  const chargeurs = { membres: chargerMembres, etablissements: chargerEtablissements, contacts: chargerContacts };
+  const chargeurs = { membres: chargerMembres, etablissements: chargerEtablissements, contacts: chargerContacts, moderation: chargerModeration, journal: chargerJournal };
   Zoe.onglets($('#onglets'), (nom) => chargeurs[nom]().catch(Zoe.erreur));
   try {
     await chargerListeEtablissements();
     await chargerMembres();
+    // Pastille des signalements à traiter, dès l'arrivée.
+    const { count } = await sb.from('signalements').select('id', { count: 'exact', head: true }).eq('statut', 'ouvert');
+    $('#pastille-moderation').hidden = !count;
+    $('#pastille-moderation').textContent = count || '';
   } catch (e) { Zoe.erreur(e); }
 })();

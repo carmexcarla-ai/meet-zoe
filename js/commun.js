@@ -2,6 +2,9 @@
    Meet Zoe — outils partagés par toutes les pages
    (connexion à Supabase, affichage, recherche de communes)
    ========================================================= */
+// Sécurité : le site refuse d'être affiché à l'intérieur d'une autre page.
+if (window.top !== window.self) { window.top.location = window.self.location.href; }
+
 const Zoe = (() => {
   const cfg = window.ZOE_CONFIG || {};
   const configure = Boolean(cfg.url && cfg.cle) && !cfg.url.includes('VOTRE-PROJET');
@@ -206,6 +209,19 @@ const Zoe = (() => {
     return montrer;
   }
 
+  // Adresses temporaires (1 heure) des photos de profil, privées par défaut.
+  async function photos(chemins) {
+    const uniques = [...new Set(chemins.filter(Boolean))];
+    if (!uniques.length) return {};
+    const { data } = await sb.storage.from('photos').createSignedUrls(uniques, 3600);
+    return Object.fromEntries((data || []).filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+  }
+  // Pastille ronde : la photo si elle existe, sinon les initiales.
+  const avatar = (prenom, initiale, url, classe = '') => (url
+    ? html`<img class="avatar avatar--photo ${classe}" src="${url}" alt="">`
+    : html`<span class="avatar ${classe}">${initiales(prenom, initiale)}</span>`);
+  const etoiles = (note, nb) => (nb ? html`<span class="note" title="${nb} avis">★ ${String(note).replace('.', ',')} <small>(${nb})</small></span>` : '');
+
   const initiales = (prenom, initiale) => `${(prenom || '?')[0]}${initiale || ''}`.toUpperCase();
 
   return {
@@ -213,6 +229,6 @@ const Zoe = (() => {
     esc, html, $, $$, date, dateHeure, heure, jours, aujourdhui,
     toast, erreur, messageErreur, req, occupe,
     exigerProfil, deconnexion, pageAccueil, pageNonConfiguree,
-    champCommune, lireCommune, onglets, initiales,
+    champCommune, lireCommune, onglets, initiales, photos, avatar, etoiles,
   };
 })();
