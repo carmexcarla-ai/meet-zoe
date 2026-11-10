@@ -698,3 +698,66 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 .footer .footer__col a { min-height: 36px; }
 @media (max-width: 940px) { .footer .footer__col a { min-height: 44px; } }
 .plan p:last-child { margin-bottom: 0; }
+
+/* =========================================================
+   Accueil : titre en deux couleurs, repères, téléphones, bandeau
+   ========================================================= */
+h1 .accent { color: var(--violet); }
+
+.reperes { list-style: none; margin: 30px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px 0; }
+.reperes li { display: flex; align-items: center; gap: 10px; padding: 0 20px; border-left: 1px solid var(--bord); font-size: .88rem; font-weight: 600; line-height: 1.25; color: var(--nuit); }
+.reperes li:first-child { padding-left: 0; border-left: 0; }
+.reperes svg { flex: none; width: 30px; height: 30px; fill: none; stroke: var(--violet); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.reperes li:last-child svg { stroke: var(--vert); }
+
+/* Écrans présentés dans un contour de téléphone */
+.fonction { grid-template-columns: 210px 1fr; column-gap: 24px; align-items: center; }
+.fonction .telephone { grid-row: 1 / span 2; }
+.fonction h3 { align-self: end; margin: 0; }
+.fonction > p { align-self: start; }
+.telephone { width: 210px; background: var(--nuit); border-radius: 34px; padding: 9px; box-shadow: var(--ombre); position: relative; }
+.telephone::before { content: ""; position: absolute; top: 15px; left: 50%; width: 52px; height: 6px; margin-left: -26px; border-radius: 99px; background: var(--nuit); z-index: 1; }
+.telephone__ecran { background: var(--blanc); border-radius: 26px; min-height: 292px; padding: 30px 10px 14px; display: flex; flex-direction: column; gap: 10px; overflow: hidden; }
+.telephone__barre { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 0 4px 8px; border-bottom: 1px solid var(--bord); font-size: .7rem; font-weight: 700; color: var(--texte-doux); text-transform: uppercase; letter-spacing: .05em; }
+.telephone__barre span { font: 500 .92rem var(--titre); color: var(--nuit); text-transform: none; letter-spacing: 0; }
+.telephone__barre b { color: var(--violet); font-weight: 600; }
+.telephone .mock { flex: 1; border: 0; background: none; padding: 4px; min-height: 0; font-size: .8rem; gap: 10px; align-content: center; }
+.telephone .mock small { font-size: .72rem; }
+.telephone .tag, .telephone .badge { font-size: .66rem; padding: 3px 8px; }
+.telephone .mock__bouton { font-size: .74rem; justify-self: stretch; text-align: center; padding: 8px; }
+.telephone .mock__resultat { flex-direction: column; align-items: flex-start; gap: 10px; background: #fff; border: 1px solid var(--bord); border-radius: 14px; padding: 12px; }
+.telephone .result__score { width: 52px; height: 52px; font-size: .95rem; }
+.telephone .mock__demande { background: #fff; border: 1px solid var(--bord); border-radius: 14px; padding: 9px; gap: 8px; flex-wrap: wrap; }
+.telephone .avatar { width: 32px; height: 32px; font-size: .72rem; }
+.telephone .mock__ligne { background: #fff; border: 1px solid var(--bord); border-radius: 14px; padding: 10px; }
+.telephone .bulle { font-size: .78rem; padding: 7px 10px; }
+
+/* Bandeau établissements */
+.section--bandeau { padding-bottom: 0; }
+.bandeau { background: var(--nuit); color: #d8cff2; border-radius: 28px; padding: 48px; display: grid; grid-template-columns: 1fr 260px; gap: 40px; align-items: center; }
+.bandeau > div { display: grid; gap: 16px; justify-items: start; }
+.bandeau h2 { color: #fff; font-size: clamp(1.6rem, 3vw, 2.2rem); max-width: 22ch; }
+.bandeau p:not(.eyebrow) { max-width: 52ch; }
+.bandeau .eyebrow { margin: 0; }
+.btn--clair { background: #fff; color: var(--nuit); gap: 8px; margin-top: 6px; }
+.btn--clair:hover { background: var(--lavande); }
+.bandeau__dessin { width: 100%; fill: none; stroke: #c9b5ff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; opacity: .9; }
+
+@media (max-width: 940px) {
+  .reperes { order: 2; margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px 12px; }
+  .reperes li, .reperes li:first-child { padding: 0; border: 0; }
+  .fonction { grid-template-columns: 1fr; justify-items: center; text-align: center; row-gap: 12px; }
+  .fonction .telephone { grid-row: auto; }
+  .fonction h3 { margin-top: 10px; }
+  .bandeau { grid-template-columns: 1fr; padding: 34px 26px; }
+  .bandeau__dessin { max-width: 220px; justify-self: center; }
+}
+@media (max-width: 560px) {
+  .bandeau .btn { width: 100%; }
+}
+.telephone__ecran { height: 330px; min-height: 0; }
+.telephone__barre { white-space: nowrap; }
+.telephone .mock__demande { display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 4px 8px; }
+.telephone .mock__demande strong { white-space: nowrap; }
+.telephone .mock__demande .badge { grid-column: 2; justify-self: start; }
+.telephone { text-align: left; }
