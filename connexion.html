@@ -109,12 +109,12 @@
 
       <!-- Code de confirmation reçu par e-mail -->
       <form data-panneau="confirmer" id="form-code" class="pile" hidden>
-        <h1>Saisissez votre code.</h1>
-        <p class="aide">Nous venons d'envoyer un code de confirmation à <b id="code-email"></b>. Il est valable une heure. Pensez à regarder dans les courriers indésirables.</p>
-        <label>Code de confirmation
+        <h1 id="code-titre">Saisissez votre code.</h1>
+        <p class="aide"><span id="code-texte">Nous venons d'envoyer un code de confirmation à</span> <b id="code-email"></b>. <span id="code-suite">Il est valable une heure.</span> Pensez à regarder dans les courriers indésirables.</p>
+        <label id="code-champ">Code de confirmation
           <input class="champ-code" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" maxlength="10" placeholder="123456" required>
         </label>
-        <button class="btn btn--primary" type="submit">Confirmer mon adresse</button>
+        <button class="btn btn--primary" type="submit" id="code-valider">Confirmer mon adresse</button>
         <button class="lien" type="button" id="renvoyer-code">Renvoyer un code</button>
       </form>
     </div>

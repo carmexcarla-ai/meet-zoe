@@ -63,18 +63,21 @@ where email = 'votre-adresse@exemple.fr';
 
 4. Reconnectez-vous : vous arrivez dans l'administration.
 
-### Code de confirmation par e-mail
+### Confirmation de l'adresse e-mail
 
-À l'inscription, le membre reçoit un code à 6 chiffres qu'il saisit sur le
-site. Pour que l'e-mail contienne ce code :
+Par défaut, l'e-mail d'inscription contient un **lien à cliquer**. C'est le
+réglage actuel (`codeParEmail: false` dans `config.js`).
 
-1. Dans Supabase : **Authentication** > **Emails** > modèle **Confirm signup**.
-2. Objet : `Votre code de confirmation Meet Zoe`.
-3. Remplacez le contenu par celui du fichier `supabase/emails/confirmation.html`.
-4. Enregistrez.
+Pour passer à un **code à 6 chiffres** à saisir sur le site, il faut d'abord
+brancher un service d'envoi d'e-mails : Supabase n'autorise la modification
+des modèles qu'avec un SMTP personnalisé.
 
-Tant que ce modèle n'est pas modifié, l'e-mail contient un lien à cliquer au
-lieu du code : l'inscription fonctionne quand même, par le lien.
+1. Supabase > **Authentification** > **Courriels** > **Configurer SMTP**, avec
+   les identifiants d'un service d'envoi et une adresse d'un nom de domaine
+   qui vous appartient.
+2. Modèle **Confirmer l'inscription** : objet `Votre code de confirmation
+   Meet Zoe`, contenu de `supabase/emails/confirmation.html`.
+3. Dans `config.js`, passez `codeParEmail` à `true`.
 
 ### 5. Mettre le site en ligne
 

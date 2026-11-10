@@ -11,4 +11,11 @@
 window.ZOE_CONFIG = {
   url: 'https://ckucrgsftfpwekijbjgn.supabase.co',
   cle: 'sb_publishable_fmr027WsnYNwZhPhhM6gxw_5KWPQG5P',
+
+  // Confirmation de l'adresse à l'inscription :
+  //   false = l'e-mail contient un lien à cliquer (réglage par défaut de Supabase)
+  //   true  = l'e-mail contient un code à 6 chiffres à saisir sur le site
+  // Ne passez à true qu'après avoir branché un service d'envoi d'e-mails (SMTP)
+  // et collé le modèle supabase/emails/confirmation.html dans Supabase.
+  codeParEmail: false,
 };

@@ -225,7 +225,7 @@ const Zoe = (() => {
   const initiales = (prenom, initiale) => `${(prenom || '?')[0]}${initiale || ''}`.toUpperCase();
 
   return {
-    sb, configure, CATEGORIES, STATUTS, RESERVATIONS, CONDUCTEUR, IDENTITES, TYPES_ETAB, FORMULES, ABONNEMENTS, JOURS,
+    sb, configure, codeParEmail: Boolean(cfg.codeParEmail), CATEGORIES, STATUTS, RESERVATIONS, CONDUCTEUR, IDENTITES, TYPES_ETAB, FORMULES, ABONNEMENTS, JOURS,
     esc, html, $, $$, date, dateHeure, heure, jours, aujourdhui,
     toast, erreur, messageErreur, req, occupe,
     exigerProfil, deconnexion, pageAccueil, pageNonConfiguree,

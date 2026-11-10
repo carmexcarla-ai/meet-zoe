@@ -28,17 +28,29 @@
 
   $('#lien-oubli').addEventListener('click', () => montrer('oubli'));
 
-  // Étape « code de confirmation » : on retient l'adresse à confirmer.
+  // Selon le réglage de config.js, l'e-mail contient un code à saisir ou un lien à cliquer.
+  if (!Zoe.codeParEmail) {
+    $('#code-titre').textContent = 'Vérifiez votre boîte mail.';
+    $('#code-texte').textContent = 'Nous venons d\'envoyer un e-mail à';
+    $('#code-suite').textContent = 'Cliquez sur le lien qu\'il contient pour confirmer votre adresse : vous serez connecté(e) automatiquement.';
+    $('#code-champ').hidden = true;
+    $('#form-code').code.required = false;
+    $('#code-valider').hidden = true;
+    $('#renvoyer-code').textContent = 'Renvoyer l\'e-mail';
+  }
+
+  // Étape de confirmation : on retient l'adresse à confirmer.
   let emailAConfirmer = '';
   function demanderCode(email) {
     emailAConfirmer = email;
     $('#code-email').textContent = email;
     montrer('confirmer');
-    $('#form-code').code.focus();
+    if (Zoe.codeParEmail) $('#form-code').code.focus();
   }
 
   $('#form-code').addEventListener('submit', (e) => {
     e.preventDefault();
+    if (!Zoe.codeParEmail) return;
     const f = e.target;
     occupe(f.querySelector('[type=submit]'), async () => {
       const { error } = await sb.auth.verifyOtp({ email: emailAConfirmer, token: f.code.value.trim(), type: 'email' });
@@ -48,8 +60,8 @@
   });
 
   $('#renvoyer-code').addEventListener('click', (e) => occupe(e.currentTarget, async () => {
-    await req(sb.auth.resend({ type: 'signup', email: emailAConfirmer }));
-    toast('Un nouveau code vient de partir.');
+    await req(sb.auth.resend({ type: 'signup', email: emailAConfirmer, options: { emailRedirectTo: new URL('connexion.html', location.href).href } }));
+    toast(Zoe.codeParEmail ? 'Un nouveau code vient de partir.' : 'L\'e-mail vient d\'être renvoyé.');
   }));
 
   $('#form-connexion').addEventListener('submit', (e) => {
