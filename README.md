@@ -77,7 +77,8 @@ limité à quelques e-mails par heure.
 
 | Page              | Pour qui              | Ce qu'on y fait                                                        |
 |-------------------|-----------------------|------------------------------------------------------------------------|
-| `index.html`      | Tout le monde         | Vitrine, démo du matching (données fictives), contact des établissements |
+| `index.html`      | Tout le monde         | Accueil en 4 sections : promesse, constat, étapes, questions            |
+| `etablissements.html` | Établissements    | Offre partenaires, formules, formulaire de contact                     |
 | `connexion.html`  | Tout le monde         | Connexion, création de compte, mot de passe oublié                     |
 | `espace.html`     | Membres               | Vérification du compte, recherche, trajets, réservations, messages, profil |
 | `partenaire.html` | Établissements        | Statistiques générales, codes d'accès, quota                           |
@@ -89,7 +90,8 @@ limité à quelques e-mails par heure.
 |-------------------------|-------------------------------------------------------------|
 | `config.js`             | Adresse et clé publique de votre projet Supabase            |
 | `styles.css`            | Apparence de toutes les pages (couleurs en haut du fichier) |
-| `app.js`                | Vitrine : menu, démo, formulaire de contact                 |
+| `app.js`                | Pages publiques : menu mobile                               |
+| `js/contact.js`         | Formulaire de contact des établissements                    |
 | `js/commun.js`          | Outils partagés (connexion, affichage, communes)            |
 | `js/connexion.js`       | Connexion et inscription                                    |
 | `js/espace.js`          | Espace membre                                               |

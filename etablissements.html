@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Établissements partenaires — Meet Zoe</title>
+  <meta name="description" content="IFSI, hôpitaux, EHPAD, FAM, foyers de vie : offrez à vos étudiants et à vos équipes un covoiturage réservé au secteur, avec des accès que vous maîtrisez.">
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
+  <!-- ===== En-tête ===== -->
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="index.html" aria-label="Meet Zoe, accueil">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <a class="btn btn--primary btn--sm header__cta" href="connexion.html#inscription">S'inscrire</a>
+      <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="menu" aria-label="Navigation principale">
+        <a href="index.html#etapes">Comment ça marche</a>
+        <a href="index.html#faq">Questions</a>
+        <a href="etablissements.html">Établissements</a>
+        <a href="connexion.html">Connexion</a>
+        <a class="btn btn--primary btn--sm" href="connexion.html#inscription">Créer mon compte</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenu">
+
+    <!-- ===== Partenaires ===== -->
+    <section class="section section--lav section--tete" id="partenaires">
+      <div class="wrap">
+        <p class="eyebrow">Espace partenaires</p>
+        <h1>Un service de mobilité pour vos étudiants et vos équipes.</h1>
+        <p class="section__intro">IFSI, hôpitaux, EHPAD, FAM, foyers de vie : l'établissement s'abonne, ses membres accèdent à la plateforme.</p>
+
+        <div class="split split--top">
+          <ul class="checks">
+            <li><b>Accès institutionnels</b> Générez et distribuez vos codes d'établissement.</li>
+            <li><b>Quotas maîtrisés</b> Suivez le nombre de membres rattachés à votre formule.</li>
+            <li><b>Statistiques générales</b> Membres actifs, trajets proposés, places partagées — sans donnée individuelle.</li>
+            <li><b>Attractivité</b> Facilitez l'accès aux stages et aux postes éloignés ou en horaires décalés.</li>
+          </ul>
+
+          <div class="plans">
+            <article class="plan">
+              <h3>Établissement</h3>
+              <p>Un site, un quota de membres adapté à votre effectif.</p>
+              <span>Abonnement annuel</span>
+            </article>
+            <article class="plan plan--main">
+              <h3>Institut de formation</h3>
+              <p>Codes par promotion, suivi des périodes de stage.</p>
+              <span>Abonnement annuel</span>
+            </article>
+            <article class="plan">
+              <h3>Réseau d'établissements</h3>
+              <p>Contrat cadre multi-sites et services complémentaires.</p>
+              <span>Sur étude</span>
+            </article>
+          </div>
+        </div>
+        <p class="note">Les tarifs dépendent du nombre de membres et des services retenus. <a href="#contact">Contactez-nous</a> pour une proposition.</p>
+      </div>
+    </section>
+
+    <!-- ===== Contact ===== -->
+    <section class="section section--night" id="contact-section">
+      <div class="wrap split split--top">
+        <div>
+          <p class="eyebrow eyebrow--light">Parlons-en</p>
+          <h2>Un échange de quinze minutes suffit pour commencer.</h2>
+          <p>Laissez-nous vos coordonnées : nous vous présentons la plateforme et construisons une proposition adaptée à votre effectif.</p>
+          <p class="signature">Ensemble, allons plus loin.</p>
+        </div>
+
+        <form class="form" id="contact" novalidate>
+          <h3>Vous représentez un établissement ?</h3>
+          <p class="aide">IFSI, hôpital, EHPAD, FAM, foyer de vie : laissez-nous vos coordonnées, nous vous recontactons.</p>
+          <label>Votre nom
+            <input type="text" name="nom" autocomplete="name" maxlength="120" required>
+          </label>
+          <label>Adresse e-mail professionnelle
+            <input type="email" name="email" autocomplete="email" maxlength="160" required>
+          </label>
+          <label>Établissement
+            <input type="text" name="organisme" maxlength="160" placeholder="Ex. IFSI d'Évreux" required>
+          </label>
+          <label>Votre message <small>(facultatif)</small>
+            <textarea name="message" rows="3" maxlength="2000"></textarea>
+          </label>
+          <button class="btn btn--primary" type="submit">Être recontacté</button>
+          <p class="form__msg" id="message" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__in">
+      <div>
+        <span class="logo__text logo__text--light">meet <b>zoe</b></span>
+        <p>Ensemble, allons plus loin.</p>
+      </div>
+      <nav aria-label="Pied de page">
+        <a href="index.html">Accueil</a>
+        <a href="etablissements.html">Établissements</a>
+        <a href="connexion.html">Connexion</a>
+      </nav>
+    </div>
+    <div class="wrap footer__legal">© <span id="annee"></span> Meet Zoe · Mentions légales et politique de confidentialité à venir</div>
+  </footer>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="app.js"></script>
+  <script src="js/contact.js"></script>
+</body>
+</html>
