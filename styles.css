@@ -666,3 +666,34 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 }
 .note--haut { margin-top: 14px; }
 .champ-code { font-size: 1.5rem !important; letter-spacing: .35em; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* =========================================================
+   Pied de page
+   ========================================================= */
+.footer { padding: 64px 0 26px; }
+.footer__haut { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 40px; }
+.footer__marque { display: grid; gap: 14px; align-content: start; justify-items: start; }
+.footer__marque p { color: #c4b8e6; max-width: 30ch; }
+.footer__lieu { display: inline-flex; align-items: center; gap: 10px; font-size: .86rem; font-weight: 600; color: #fff !important; border: 1px solid rgba(255, 255, 255, .16); border-radius: 999px; padding: 6px 14px; }
+.footer__col { display: grid !important; gap: 2px; align-content: start; justify-items: start; }
+.footer__col h2 { font: 700 .78rem var(--corps); letter-spacing: .12em; text-transform: uppercase; color: #6fe0c6; margin: 0 0 8px; max-width: none; }
+.footer__col a { color: #d8cff2; min-height: 40px; display: inline-flex; align-items: center; }
+.footer__col a:hover { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+.footer__confiance { margin-top: 44px; padding: 18px 0; border-top: 1px solid rgba(255, 255, 255, .1); border-bottom: 1px solid rgba(255, 255, 255, .1); display: flex; flex-wrap: wrap; gap: 10px 34px; font-size: .9rem; font-weight: 500; color: #d8cff2; }
+.footer__confiance span { display: inline-flex; align-items: center; gap: 9px; }
+.footer__confiance span::before { content: "✓"; width: 20px; height: 20px; border-radius: 50%; background: var(--vert); color: #fff; display: grid; place-items: center; font-size: .7rem; font-weight: 700; flex: none; }
+.footer__bas { margin-top: 20px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 24px; font-size: .85rem; color: #a99cc9; }
+.footer__bas em { font-style: normal; opacity: .75; }
+@media (max-width: 940px) {
+  .footer { padding-top: 48px; }
+  .footer__haut { grid-template-columns: 1fr 1fr; gap: 32px 24px; }
+  .footer__marque { grid-column: 1 / -1; }
+  .footer__col a { min-height: 44px; }
+}
+@media (max-width: 560px) {
+  .footer__confiance { flex-direction: column; }
+  .footer__bas { flex-direction: column; }
+}
+.footer .footer__col { gap: 0; }
+.footer .footer__col a { min-height: 36px; }
+@media (max-width: 940px) { .footer .footer__col a { min-height: 44px; } }

@@ -344,20 +344,53 @@
   </main>
 
   <footer class="footer">
-    <div class="wrap footer__in">
-      <div>
-        <span class="logo__text logo__text--light">meet <b>zoe</b></span>
-        <p>Ensemble, allons plus loin.</p>
+    <div class="wrap footer__haut">
+      <div class="footer__marque">
+        <a class="logo" href="index.html" aria-label="Meet Zoe, accueil">
+          <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+            <rect width="40" height="40" rx="12" fill="#5425B8"/>
+            <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+            <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+            <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+          </svg>
+          <span class="logo__text logo__text--light">meet <b>zoe</b></span>
+        </a>
+        <p>Le covoiturage pour ceux qui prennent soin des autres.</p>
+        <p class="footer__lieu"><span class="dot"></span> Lancement en Normandie</p>
       </div>
-      <nav aria-label="Pied de page">
-        <a href="index.html">Accueil</a>
+
+      <nav class="footer__col" aria-label="La plateforme">
+        <h2>La plateforme</h2>
+        <a href="index.html#fonctionnalites">Fonctionnalités</a>
+        <a href="index.html#etapes">Comment ça marche</a>
+        <a href="index.html#acces">Accès vérifié</a>
+        <a href="index.html#faq">Questions fréquentes</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Meet Zoe">
+        <h2>Meet Zoe</h2>
         <a href="a-propos.html">Qui sommes-nous</a>
         <a href="etablissements.html">Établissements</a>
-        <a href="index.html#faq">Questions</a>
+        <a href="etablissements.html#contact">Nous contacter</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Mon compte">
+        <h2>Mon compte</h2>
+        <a href="connexion.html#inscription">Créer mon compte</a>
         <a href="connexion.html">Connexion</a>
       </nav>
     </div>
-    <div class="wrap footer__legal">© <span id="annee"></span> Meet Zoe · Mentions légales et politique de confidentialité à venir</div>
+
+    <div class="wrap footer__confiance">
+      <span>Membres vérifiés un par un</span>
+      <span>Permis des conducteurs contrôlés</span>
+      <span>Fermé au grand public</span>
+    </div>
+
+    <div class="wrap footer__bas">
+      <p>© <span id="annee"></span> Meet Zoe · Ensemble, allons plus loin.</p>
+      <p>Mentions légales · Confidentialité · Conditions d'utilisation <em>(bientôt disponibles)</em></p>
+    </div>
   </footer>
 
   <script src="app.js"></script>
