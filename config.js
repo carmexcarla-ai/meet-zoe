@@ -17,5 +17,5 @@ window.ZOE_CONFIG = {
   //   true  = l'e-mail contient un code à 6 chiffres à saisir sur le site
   // Ne passez à true qu'après avoir branché un service d'envoi d'e-mails (SMTP)
   // et collé le modèle supabase/emails/confirmation.html dans Supabase.
-  codeParEmail: false,
+  codeParEmail: true,
 };
