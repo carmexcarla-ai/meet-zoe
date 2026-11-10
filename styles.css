@@ -635,8 +635,8 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 .avatar--grand { width: 84px; height: 84px; font-size: 1.6rem; }
 .lien-nom { background: none; border: 0; padding: 0; font: 700 1rem var(--corps); color: var(--nuit); cursor: pointer; text-decoration: underline; text-decoration-color: var(--bord); text-underline-offset: 4px; }
 .lien-nom:hover { color: var(--violet); text-decoration-color: var(--violet); }
-.note { color: #8a5a00; font-weight: 700; font-size: .92rem; white-space: nowrap; }
-.note small { font-weight: 500; color: var(--texte-doux); }
+.note-etoiles { color: #8a5a00; font-weight: 700; font-size: .92rem; white-space: nowrap; }
+.note-etoiles small { font-weight: 500; color: var(--texte-doux); }
 .result__qui { display: flex; gap: 12px; align-items: center; margin-bottom: 6px; }
 
 .fiche { width: min(480px, 100% - 24px); }
@@ -697,3 +697,4 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
 .footer .footer__col { gap: 0; }
 .footer .footer__col a { min-height: 36px; }
 @media (max-width: 940px) { .footer .footer__col a { min-height: 44px; } }
+.plan p:last-child { margin-bottom: 0; }

@@ -750,7 +750,7 @@
       ${f.bio ? html`<p class="citation">« ${f.bio} »</p>` : ''}
       ${f.avis.length ? html`<h4>Avis des passagers</h4>
         <ul class="fiche__avis">${f.avis.map((a) => html`<li>
-          <span class="note">${'★'.repeat(a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
+          <span class="note-etoiles">${'★'.repeat(a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
           ${a.commentaire ? html`<p>${a.commentaire}</p>` : ''}</li>`)}</ul>` : ''}
       ${f.id === moi.id ? '' : html`<button class="lien lien--danger" type="button" data-signaler="${f.id}">Signaler ce membre</button>`}`;
     if (!fiche.open) fiche.showModal();

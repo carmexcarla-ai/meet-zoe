@@ -220,7 +220,7 @@ const Zoe = (() => {
   const avatar = (prenom, initiale, url, classe = '') => (url
     ? html`<img class="avatar avatar--photo ${classe}" src="${url}" alt="">`
     : html`<span class="avatar ${classe}">${initiales(prenom, initiale)}</span>`);
-  const etoiles = (note, nb) => (nb ? html`<span class="note" title="${nb} avis">★ ${String(note).replace('.', ',')} <small>(${nb})</small></span>` : '');
+  const etoiles = (note, nb) => (nb ? html`<span class="note-etoiles" title="${nb} avis">★ ${String(note).replace('.', ',')} <small>(${nb})</small></span>` : '');
 
   const initiales = (prenom, initiale) => `${(prenom || '?')[0]}${initiale || ''}`.toUpperCase();
 
