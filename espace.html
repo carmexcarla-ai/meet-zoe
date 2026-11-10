@@ -80,6 +80,7 @@
         <button type="button" role="tab" data-onglet="proposer" aria-selected="false">Proposer un trajet</button>
         <button type="button" role="tab" data-onglet="trajets" aria-selected="false">Mes trajets</button>
         <button type="button" role="tab" data-onglet="reservations" aria-selected="false">Mes réservations</button>
+        <button type="button" role="tab" data-onglet="messages" aria-selected="false">Messages <span class="pastille" id="pastille" hidden></span></button>
         <button type="button" role="tab" data-onglet="profil" aria-selected="false">Profil</button>
       </nav>
 
@@ -111,7 +112,31 @@
       <!-- Proposer -->
       <section data-panneau="proposer" hidden>
         <h1>Proposer un trajet</h1>
-        <form class="carte-form" id="form-trajet">
+
+        <!-- Avant de conduire : permis et pièce d'identité -->
+        <div class="carte-form" id="conducteur-docs" hidden>
+          <h2>Devenir conducteur</h2>
+          <p class="aide">Pour proposer un trajet, nous vérifions votre permis de conduire et une pièce d'identité. Les fichiers sont consultés par notre équipe, puis effacés dès le contrôle terminé.</p>
+          <div class="alerte" id="conducteur-etat" hidden></div>
+          <form class="pile" id="form-conducteur">
+            <label>Permis de conduire <small>(PDF, JPG ou PNG, 5 Mo max.)</small>
+              <input type="file" name="permis" accept="application/pdf,image/jpeg,image/png" required>
+            </label>
+            <label>Type de pièce d'identité
+              <select name="type" required>
+                <option value="cni">Carte d'identité</option>
+                <option value="passeport">Passeport</option>
+                <option value="titre_sejour">Titre de séjour</option>
+              </select>
+            </label>
+            <label>Pièce d'identité <small>(PDF, JPG ou PNG, 5 Mo max.)</small>
+              <input type="file" name="identite" accept="application/pdf,image/jpeg,image/png" required>
+            </label>
+            <button class="btn btn--primary" type="submit">Envoyer mes documents</button>
+          </form>
+        </div>
+
+        <form class="carte-form" id="form-trajet" hidden>
           <div class="form__row">
             <label>Commune de départ
               <input type="text" id="t-depart" required>
@@ -177,6 +202,12 @@
       <section data-panneau="reservations" hidden>
         <h1>Mes réservations</h1>
         <div class="liste" id="mes-reservations"></div>
+      </section>
+
+      <!-- Messages -->
+      <section data-panneau="messages" hidden>
+        <h1>Messages</h1>
+        <div class="liste" id="conversations"></div>
       </section>
 
       <!-- Profil -->

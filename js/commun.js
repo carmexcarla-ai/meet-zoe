@@ -17,7 +17,9 @@ const Zoe = (() => {
     etablissement: 'Représentant(e) d\'un établissement',
   };
   const STATUTS = { en_attente: 'En attente', verifie: 'Vérifié', refuse: 'Refusé', suspendu: 'Suspendu' };
-  const RESERVATIONS = { demandee: 'En attente', acceptee: 'Acceptée', refusee: 'Refusée', annulee: 'Annulée' };
+  const RESERVATIONS = { contact: 'Discussion', demandee: 'En attente', acceptee: 'Acceptée', refusee: 'Refusée', annulee: 'Annulée' };
+  const CONDUCTEUR = { non: 'Non conducteur', en_attente: 'Documents à contrôler', valide: 'Conducteur validé', refuse: 'Conducteur refusé' };
+  const IDENTITES = { cni: 'Carte d\'identité', passeport: 'Passeport', titre_sejour: 'Titre de séjour' };
   const TYPES_ETAB = { ifsi: 'IFSI', ifas: 'IFAS', hopital: 'Hôpital', ehpad: 'EHPAD', fam: 'FAM', foyer: 'Foyer de vie', autre: 'Autre' };
   const FORMULES = { etablissement: 'Établissement', institut: 'Institut de formation', reseau: 'Réseau d\'établissements' };
   const ABONNEMENTS = { essai: 'Essai', actif: 'Actif', suspendu: 'Suspendu', termine: 'Terminé' };
@@ -207,7 +209,7 @@ const Zoe = (() => {
   const initiales = (prenom, initiale) => `${(prenom || '?')[0]}${initiale || ''}`.toUpperCase();
 
   return {
-    sb, configure, CATEGORIES, STATUTS, RESERVATIONS, TYPES_ETAB, FORMULES, ABONNEMENTS, JOURS,
+    sb, configure, CATEGORIES, STATUTS, RESERVATIONS, CONDUCTEUR, IDENTITES, TYPES_ETAB, FORMULES, ABONNEMENTS, JOURS,
     esc, html, $, $$, date, dateHeure, heure, jours, aujourdhui,
     toast, erreur, messageErreur, req, occupe,
     exigerProfil, deconnexion, pageAccueil, pageNonConfiguree,

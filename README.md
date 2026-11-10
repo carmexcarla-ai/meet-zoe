@@ -37,6 +37,8 @@ les espaces ne fonctionnent pas (un bandeau jaune le signale).
    cliquez sur **Run**.
 
 Le script peut être relancé sans danger : il ne supprime aucune donnée.
+**À chaque mise à jour de `schema.sql`, recollez-le et relancez-le** : c'est
+ainsi que la base reçoit les nouveautés.
 
 ### 3. Relier le site
 
@@ -113,6 +115,17 @@ trajet. Il devient « vérifié » par l'une des trois méthodes :
 3. **Invitation** : chaque membre vérifié dispose de 5 invitations à usage
    unique.
 
+**Conducteurs.** Pour proposer un trajet, un membre vérifié dépose son permis
+de conduire et une pièce d'identité (carte d'identité, passeport ou titre de
+séjour). L'administration les consulte dans **Membres** > **Conducteurs à
+valider**, puis valide ou refuse. Les fichiers sont effacés dès la décision ;
+seule la date de validation est conservée. Les passagers ne sont pas concernés.
+
+**Messagerie.** Un membre peut poser une question au conducteur d'un trajet
+avant de demander une place. L'onglet **Messages** regroupe toutes les
+conversations et signale les messages non lus. On ne peut écrire à quelqu'un
+qu'à partir d'un de ses trajets.
+
 **Matching.** La recherche compare la destination, la date et le jour, l'heure
 d'arrivée (le conducteur doit arriver avant l'heure demandée, avec 90 minutes
 d'avance au plus) et le **détour** imposé au conducteur pour passer prendre le
@@ -142,7 +155,8 @@ date de fin de chaque établissement. Il n'y a pas de paiement en ligne.
 - Mentions légales, conditions d'utilisation et politique de confidentialité
   (RGPD), à faire relire par un professionnel.
 - Envoi d'e-mails (SMTP) et nom de domaine.
-- Notifications (nouvelle demande, nouveau message).
+- Notifications par e-mail (nouvelle demande, nouveau message) : pour
+  l'instant, les non-lus s'affichent seulement une fois connecté.
 - Paiement en ligne des abonnements, si souhaité.
 - Application mobile.
 

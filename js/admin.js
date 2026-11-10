@@ -31,7 +31,8 @@
   async function chargerMembres() {
     const statut = $('#filtre-statut').value;
     let requete = sb.from('profils').select('*').order('created_at', { ascending: false }).limit(300);
-    if (statut) requete = requete.eq('statut', statut);
+    if (statut === 'conducteurs') requete = requete.eq('conducteur_statut', 'en_attente');
+    else if (statut) requete = requete.eq('statut', statut);
     membres = await req(requete);
 
     $('#membres').innerHTML = membres.length
@@ -40,7 +41,17 @@
           <td><strong>${m.prenom} ${m.nom}</strong><br><small>${m.email}</small><br><small>Inscrit le ${Zoe.date(m.created_at.slice(0, 10))}</small></td>
           <td>${Zoe.CATEGORIES[m.categorie]}<br><small>${nomEtab(m.etablissement_id) || m.etablissement_declare || '—'}</small></td>
           <td>${METHODES[m.methode_verif] || 'Aucune démarche'}
-            ${m.justificatif_path ? html`<br><button class="lien" type="button" data-action="justificatif">Voir le justificatif</button>` : ''}</td>
+            ${m.justificatif_path ? html`<br><button class="lien" type="button" data-action="justificatif">Voir le justificatif</button>` : ''}
+            ${m.conducteur_statut !== 'non' ? html`<div class="bloc-conducteur">
+              <span class="badge badge--cond-${m.conducteur_statut}">${Zoe.CONDUCTEUR[m.conducteur_statut]}</span>
+              ${m.conducteur_statut === 'en_attente' ? html`
+                <button class="lien" type="button" data-action="doc-permis">Voir le permis</button>
+                <button class="lien" type="button" data-action="doc-identite">Voir : ${Zoe.IDENTITES[m.identite_type] || 'pièce d\'identité'}</button>
+                <span class="element__actions">
+                  <button class="btn btn--green btn--sm" type="button" data-action="conducteur-oui">Valider le conducteur</button>
+                  <button class="lien lien--danger" type="button" data-action="conducteur-non">Refuser</button>
+                </span>` : ''}
+            </div>` : ''}</td>
           <td><span class="badge badge--${m.statut}">${Zoe.STATUTS[m.statut]}</span></td>
           <td>${m.id === moi.id ? 'Admin (vous)' : html`
             <select data-champ="role" aria-label="Rôle">
@@ -79,6 +90,23 @@
         // Lien temporaire (2 minutes) vers le fichier privé.
         const { signedUrl } = await req(sb.storage.from('justificatifs').createSignedUrl(membre.justificatif_path, 120));
         window.open(signedUrl, '_blank', 'noopener');
+        return;
+      }
+      if (action === 'doc-permis' || action === 'doc-identite') {
+        const chemin = action === 'doc-permis' ? membre.permis_path : membre.identite_path;
+        const { signedUrl } = await req(sb.storage.from('documents-conducteur').createSignedUrl(chemin, 120));
+        window.open(signedUrl, '_blank', 'noopener');
+        return;
+      }
+      if (action === 'conducteur-oui' || action === 'conducteur-non') {
+        const valider = action === 'conducteur-oui';
+        if (!valider && !confirm(`Refuser ${membre.prenom} ${membre.nom} comme conducteur ?`)) return;
+        await req(sb.rpc('admin_valider_conducteur', { p_membre: membre.id, p_valider: valider }));
+        // Le contrôle est fait : le permis et la pièce d'identité sont effacés.
+        const fichiers = [membre.permis_path, membre.identite_path].filter(Boolean);
+        if (fichiers.length) await sb.storage.from('documents-conducteur').remove(fichiers);
+        toast(valider ? 'Conducteur validé. Documents effacés.' : 'Conducteur refusé. Documents effacés.');
+        await chargerMembres();
         return;
       }
       if (action === 'role') {

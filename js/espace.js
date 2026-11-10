@@ -5,7 +5,7 @@
    3. Proposer un trajet
    4. Mes trajets (conducteur)
    5. Mes réservations (passager)
-   6. Messagerie
+   6. Messagerie et boîte de réception
    7. Profil, invitations, suppression du compte
    ========================================================= */
 (async () => {
@@ -81,7 +81,7 @@
 
   /* ---------- Espace vérifié ---------- */
   $('#espace').hidden = false;
-  const chargeurs = { trajets: chargerMesTrajets, reservations: chargerMesReservations, profil: chargerProfil };
+  const chargeurs = { trajets: chargerMesTrajets, reservations: chargerMesReservations, messages: chargerConversations, profil: chargerProfil };
   const montrer = Zoe.onglets($('#onglets'), (nom) => chargeurs[nom] && chargeurs[nom]());
 
   // Fiche d'un membre telle que les autres la voient.
@@ -136,15 +136,18 @@
         </div>
         <div class="result__side">
           <span class="seats">${t.places_restantes > 0 ? `${t.places_restantes} place${t.places_restantes > 1 ? 's' : ''}` : 'Complet'}</span>
-          ${t.ma_reservation && t.ma_reservation !== 'annulee'
+          ${['demandee', 'acceptee', 'refusee'].includes(t.ma_reservation)
             ? badgeReservation(t.ma_reservation)
             : t.places_restantes > 0 ? html`<button class="btn btn--primary btn--sm" type="button" data-action="demander">Demander une place</button>` : ''}
+          ${t.ma_reservation
+            ? html`<button class="lien" type="button" data-action="voir-messages">Messages</button>`
+            : html`<button class="lien" type="button" data-action="question">Poser une question</button>`}
         </div>
         <form class="result__demande" hidden>
-          <label>Message au conducteur <small>(facultatif)</small>
+          <label><span data-libelle>Message au conducteur</span>
             <textarea name="message" rows="2" maxlength="2000" placeholder="Bonjour, je suis en stage au même endroit…"></textarea>
           </label>
-          <button class="btn btn--green btn--sm" type="submit">Envoyer ma demande</button>
+          <button class="btn btn--green btn--sm" type="submit">Envoyer</button>
         </form>
       </article>`)}`;
   }
@@ -155,11 +158,17 @@
   });
 
   $('#resultats').addEventListener('click', (e) => {
-    const bouton = e.target.closest('[data-action="demander"]');
+    const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
+    if (bouton.dataset.action === 'voir-messages') { montrer('messages'); return; }
+    // Le même formulaire sert à demander une place ou à poser une simple question.
+    const question = bouton.dataset.action === 'question';
     const formulaire = $('.result__demande', bouton.closest('.result'));
+    formulaire.dataset.mode = bouton.dataset.action;
+    formulaire.message.required = question;
+    $('[data-libelle]', formulaire).textContent = question ? 'Votre question au conducteur' : 'Message au conducteur (facultatif)';
+    $('[type=submit]', formulaire).textContent = question ? 'Envoyer mon message' : 'Envoyer ma demande';
     formulaire.hidden = false;
-    bouton.hidden = true;
     formulaire.message.focus();
   });
 
@@ -167,6 +176,12 @@
     e.preventDefault();
     const carte = e.target.closest('.result');
     occupe(e.submitter, async () => {
+      if (e.target.dataset.mode === 'question') {
+        await req(sb.rpc('contacter_conducteur', { p_trajet: carte.dataset.trajet, p_message: e.target.message.value }));
+        toast('Message envoyé au conducteur.');
+        montrer('messages');
+        return;
+      }
       await req(sb.rpc('demander_reservation', { p_trajet: carte.dataset.trajet, p_message: e.target.message.value }));
       toast('Demande envoyée au conducteur.');
       await rechercher();
@@ -187,6 +202,47 @@
   req(sb.from('etablissements_publics').select('nom').order('nom')).then((liste) => {
     $('#liste-etablissements').replaceChildren(...liste.map((e) => new Option(e.nom)));
   }).catch(() => {});
+
+  // Seuls les conducteurs validés voient le formulaire de trajet.
+  function afficherEtatConducteur() {
+    const valide = moi.conducteur_statut === 'valide';
+    formTrajet.hidden = !valide;
+    $('#conducteur-docs').hidden = valide;
+    const etat = $('#conducteur-etat');
+    const enAttente = moi.conducteur_statut === 'en_attente';
+    $('#form-conducteur').hidden = enAttente;
+    etat.hidden = !enAttente && moi.conducteur_statut !== 'refuse';
+    etat.classList.toggle('alerte--err', moi.conducteur_statut === 'refuse');
+    etat.textContent = enAttente
+      ? 'Vos documents ont bien été reçus. Ils sont en cours de contrôle : vous pourrez proposer un trajet dès leur validation.'
+      : 'Vos documents n\'ont pas pu être acceptés. Vous pouvez en envoyer de nouveaux.';
+  }
+  afficherEtatConducteur();
+
+  $('#form-conducteur').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const f = e.target;
+    occupe(e.submitter, async () => {
+      const extensions = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png' };
+      const deposer = async (fichier, nom) => {
+        if (!fichier) throw new Error('Choisissez les deux fichiers.');
+        if (fichier.size > 5 * 1024 * 1024) throw new Error('Fichier trop volumineux (5 Mo maximum).');
+        if (!extensions[fichier.type]) throw new Error('Format de fichier non accepté (PDF, JPG ou PNG).');
+        const chemin = `${moi.id}/${nom}-${Date.now()}.${extensions[fichier.type]}`;
+        await req(sb.storage.from('documents-conducteur').upload(chemin, fichier, { contentType: fichier.type }));
+        return chemin;
+      };
+      const anciens = [moi.permis_path, moi.identite_path].filter(Boolean);
+      const permis = await deposer(f.permis.files[0], 'permis');
+      const identite = await deposer(f.identite.files[0], 'identite');
+      await req(sb.rpc('soumettre_documents_conducteur', { p_permis: permis, p_identite: identite, p_type: f.type.value }));
+      if (anciens.length) await sb.storage.from('documents-conducteur').remove(anciens);
+      moi = await req(sb.from('profils').select('*').eq('id', moi.id).single());
+      f.reset();
+      afficherEtatConducteur();
+      toast('Documents envoyés. Notre équipe les contrôle.');
+    });
+  });
 
   formTrajet.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -233,7 +289,7 @@
       const membres = await membresParId(reservations.map((r) => r.passager_id));
 
       zone.innerHTML = html`${trajets.map((t) => {
-        const demandes = reservations.filter((r) => r.trajet_id === t.id && r.statut !== 'annulee');
+        const demandes = reservations.filter((r) => r.trajet_id === t.id && !['annulee', 'contact'].includes(r.statut));
         const prises = demandes.filter((r) => r.statut === 'acceptee').length;
         return html`
         <article class="element" data-trajet="${t.id}">
@@ -295,7 +351,7 @@
   async function chargerMesReservations() {
     const zone = $('#mes-reservations');
     try {
-      const reservations = await req(sb.from('reservations').select('*').eq('passager_id', moi.id).order('created_at', { ascending: false }));
+      const reservations = await req(sb.from('reservations').select('*').eq('passager_id', moi.id).neq('statut', 'contact').order('created_at', { ascending: false }));
       if (!reservations.length) {
         zone.innerHTML = html`<div class="empty">Vous n'avez pas encore demandé de place.</div>`;
         return;
@@ -354,7 +410,47 @@
           </div>`)}`
       : html`<p class="aide">Aucun message. Écrivez le premier pour vous organiser.</p>`;
     zone.scrollTop = zone.scrollHeight;
+    await sb.rpc('marquer_lu', { p_reservation: filReservation });
   }
+
+  // Pastille des messages non lus sur l'onglet « Messages ».
+  async function majPastille() {
+    const { data } = await sb.rpc('mes_conversations');
+    const total = (data || []).reduce((somme, c) => somme + c.non_lus, 0);
+    const pastille = $('#pastille');
+    pastille.hidden = total === 0;
+    pastille.textContent = total;
+    return data || [];
+  }
+
+  async function chargerConversations() {
+    const zone = $('#conversations');
+    try {
+      const conversations = await majPastille();
+      zone.innerHTML = conversations.length
+        ? html`${conversations.map((c) => html`
+          <button class="conversation ${c.non_lus ? 'conversation--nonlu' : ''}" type="button"
+                  data-reservation="${c.reservation_id}" data-nom="${c.autre_prenom} ${c.autre_initiale}.">
+            <span class="avatar">${Zoe.initiales(c.autre_prenom, c.autre_initiale)}</span>
+            <span class="conversation__texte">
+              <strong>${c.autre_prenom} ${c.autre_initiale}.</strong>
+              <small>${c.je_conduis ? 'Votre trajet' : 'Son trajet'} : ${c.depart_ville} → ${c.destination_nom}</small>
+              <span class="conversation__extrait">${c.dernier_de_moi ? 'Vous : ' : ''}${c.dernier_message}</span>
+            </span>
+            <span class="conversation__cote">
+              <small>${Zoe.dateHeure(c.dernier_le)}</small>
+              ${c.non_lus ? html`<span class="pastille">${c.non_lus}</span>` : badgeReservation(c.statut)}
+            </span>
+          </button>`)}`
+        : html`<div class="empty"><strong>Aucune conversation.</strong>
+            <p>Depuis la recherche, vous pouvez poser une question à un conducteur avant de demander une place.</p></div>`;
+    } catch (e) { Zoe.erreur(e); }
+  }
+
+  $('#conversations').addEventListener('click', (e) => {
+    const ligne = e.target.closest('[data-reservation]');
+    if (ligne) ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom);
+  });
 
   function ouvrirFil(reservation, nom) {
     filReservation = reservation;
@@ -366,7 +462,14 @@
     filMinuteur = setInterval(() => chargerFil().catch(() => {}), 8000);
   }
 
-  fil.addEventListener('close', () => { clearInterval(filMinuteur); filReservation = null; });
+  fil.addEventListener('close', () => {
+    clearInterval(filMinuteur);
+    filReservation = null;
+    // À la fermeture, la liste et la pastille reflètent ce qui vient d'être lu.
+    if (!$('[data-panneau="messages"]').hidden) chargerConversations(); else majPastille();
+  });
+  majPastille();
+  setInterval(majPastille, 30000);
   $('#fil-fermer').addEventListener('click', () => fil.close());
   $('#fil-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -388,7 +491,8 @@
       formProfil[champ].value = moi[champ] || '';
     }
     const methodes = { code: 'code d\'établissement', justificatif: 'justificatif', invitation: 'invitation', admin: 'l\'équipe Meet Zoe' };
-    $('#profil-resume').textContent = `${Zoe.CATEGORIES[moi.categorie]} · ${moi.email} · compte vérifié par ${methodes[moi.methode_verif] || 'l\'équipe Meet Zoe'}.`;
+    $('#profil-resume').textContent = `${Zoe.CATEGORIES[moi.categorie]} · ${moi.email} · compte vérifié par ${methodes[moi.methode_verif] || 'l\'équipe Meet Zoe'}`
+      + (moi.conducteur_statut === 'valide' ? ' · conducteur validé.' : '.');
     try {
       const invitations = await req(sb.from('invitations').select('*').eq('cree_par', moi.id).order('created_at'));
       $('#invitations').innerHTML = invitations.length
@@ -421,9 +525,17 @@
     await chargerProfil();
   }));
 
+  // Inscrit comme conducteur mais pas encore validé : on commence par les documents.
+  if (moi.souhaite_conduire && ['non', 'refuse'].includes(moi.conducteur_statut)) montrer('proposer');
+
   $('#supprimer-compte').addEventListener('click', (e) => {
     if (!confirm('Supprimer définitivement votre compte et toutes vos données ?')) return;
     occupe(e.currentTarget, async () => {
+      // Efface d'abord les fichiers éventuellement déposés.
+      for (const dossier of ['justificatifs', 'documents-conducteur']) {
+        const { data: fichiers } = await sb.storage.from(dossier).list(moi.id);
+        if (fichiers && fichiers.length) await sb.storage.from(dossier).remove(fichiers.map((f) => `${moi.id}/${f.name}`));
+      }
       await req(sb.rpc('supprimer_mon_compte'));
       await sb.auth.signOut();
       location.href = 'index.html';

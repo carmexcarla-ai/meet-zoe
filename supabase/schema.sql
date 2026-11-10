@@ -48,6 +48,21 @@ create table if not exists public.profils (
 );
 create index if not exists profils_etablissement_idx on public.profils (etablissement_id);
 
+-- Conducteurs : permis et pièce d'identité contrôlés par l'administration.
+-- Les fichiers sont effacés après le contrôle ; seule la décision est gardée.
+alter table public.profils add column if not exists souhaite_conduire boolean not null default false;
+alter table public.profils add column if not exists conducteur_statut text not null default 'non';
+alter table public.profils add column if not exists permis_path text;
+alter table public.profils add column if not exists identite_path text;
+alter table public.profils add column if not exists identite_type text;
+alter table public.profils add column if not exists conducteur_valide_le timestamptz;
+alter table public.profils drop constraint if exists profils_conducteur_statut_check;
+alter table public.profils add constraint profils_conducteur_statut_check
+  check (conducteur_statut in ('non','en_attente','valide','refuse'));
+alter table public.profils drop constraint if exists profils_identite_type_check;
+alter table public.profils add constraint profils_identite_type_check
+  check (identite_type is null or identite_type in ('cni','passeport','titre_sejour'));
+
 create table if not exists public.codes_acces (
   id               uuid primary key default gen_random_uuid(),
   etablissement_id uuid not null references public.etablissements (id) on delete cascade,
@@ -99,11 +114,20 @@ create table if not exists public.reservations (
   id          uuid primary key default gen_random_uuid(),
   trajet_id   uuid not null references public.trajets (id) on delete cascade,
   passager_id uuid not null references public.profils (id) on delete cascade,
-  statut      text not null default 'demandee' check (statut in ('demandee','acceptee','refusee','annulee')),
+  statut      text not null default 'demandee',
   created_at  timestamptz not null default now(),
   unique (trajet_id, passager_id)
 );
 create index if not exists reservations_passager_idx on public.reservations (passager_id);
+
+-- Une ligne « contact » est une simple conversation avec le conducteur,
+-- sans demande de place. Elle devient « demandee » si le membre réserve.
+alter table public.reservations drop constraint if exists reservations_statut_check;
+alter table public.reservations add constraint reservations_statut_check
+  check (statut in ('contact','demandee','acceptee','refusee','annulee'));
+-- Dernière lecture de la conversation par chacun (pour les messages non lus).
+alter table public.reservations add column if not exists lu_passager_le timestamptz not null default now();
+alter table public.reservations add column if not exists lu_conducteur_le timestamptz not null default now();
 
 create table if not exists public.messages (
   id             uuid primary key default gen_random_uuid(),
@@ -136,6 +160,12 @@ $$;
 create or replace function public.est_admin() returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (select 1 from profils where id = auth.uid() and statut = 'verifie' and role = 'admin');
+$$;
+
+-- Conducteur dont le permis et la pièce d'identité ont été validés.
+create or replace function public.est_conducteur() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from profils where id = auth.uid() and statut = 'verifie' and conducteur_statut = 'valide');
 $$;
 
 -- Établissement géré par le partenaire connecté (sinon NULL).
@@ -184,7 +214,7 @@ begin
   if v_categorie is null or v_categorie not in ('esi','eas','autre_formation','pro_diplome','pro_non_diplome','etablissement') then
     v_categorie := 'autre_formation';
   end if;
-  insert into profils (id, email, prenom, nom, categorie, etablissement_declare, ville)
+  insert into profils (id, email, prenom, nom, categorie, etablissement_declare, ville, souhaite_conduire)
   values (
     new.id,
     new.email,
@@ -192,7 +222,8 @@ begin
     left(coalesce(nullif(trim(m ->> 'nom'), ''), '-'), 60),
     v_categorie,
     left(nullif(trim(m ->> 'etablissement_declare'), ''), 120),
-    left(nullif(trim(m ->> 'ville'), ''), 80)
+    left(nullif(trim(m ->> 'ville'), ''), 80),
+    coalesce(m ->> 'conducteur', '') = 'true'
   )
   on conflict (id) do nothing;
   return new;
@@ -305,6 +336,27 @@ begin
 end;
 $$;
 
+-- 4d. Conducteurs : dépôt du permis et d'une pièce d'identité.
+create or replace function public.soumettre_documents_conducteur(p_permis text, p_identite text, p_type text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_profil profils;
+begin
+  select * into v_profil from profils where id = auth.uid();
+  if v_profil.id is null or v_profil.statut <> 'verifie' then raise exception 'Accès réservé aux membres vérifiés.'; end if;
+  if v_profil.conducteur_statut = 'valide' then raise exception 'Vous êtes déjà validé comme conducteur.'; end if;
+  if p_type is null or p_type not in ('cni','passeport','titre_sejour') then raise exception 'Type de pièce d''identité inconnu.'; end if;
+  if p_permis is null or p_permis not like auth.uid()::text || '/%'
+     or p_identite is null or p_identite not like auth.uid()::text || '/%' then
+    raise exception 'Fichier invalide.';
+  end if;
+
+  update profils set permis_path = p_permis, identite_path = p_identite, identite_type = p_type,
+    conducteur_statut = 'en_attente', souhaite_conduire = true
+  where id = auth.uid();
+end;
+$$;
+
 -- ---------------------------------------------------------------------
 -- 5. TRAJETS, RECHERCHE ET RÉSERVATIONS
 -- ---------------------------------------------------------------------
@@ -355,7 +407,7 @@ language sql stable security definer set search_path = public as $$
     )::integer as score,
     (select r.statut from reservations r where r.trajet_id = c.id and r.passager_id = auth.uid())
   from candidats c
-  join profils p on p.id = c.conducteur_id and p.statut = 'verifie'
+  join profils p on p.id = c.conducteur_id and p.statut = 'verifie' and p.conducteur_statut = 'valide'
   left join etablissements e on e.id = p.etablissement_id
   where c.d_dest <= 5
     and c.avance between 0 and 90
@@ -381,8 +433,9 @@ begin
 
   select * into v_res from reservations where trajet_id = p_trajet and passager_id = auth.uid();
   if v_res.id is null then
-    insert into reservations (trajet_id, passager_id) values (p_trajet, auth.uid()) returning * into v_res;
-  elsif v_res.statut = 'annulee' then
+    -- « epoch » : le conducteur n'a encore rien lu de cette conversation.
+    insert into reservations (trajet_id, passager_id, lu_conducteur_le) values (p_trajet, auth.uid(), 'epoch') returning * into v_res;
+  elsif v_res.statut in ('annulee', 'contact') then
     update reservations set statut = 'demandee' where id = v_res.id;
   elsif v_res.statut = 'refusee' then
     raise exception 'Le conducteur a refusé cette demande.';
@@ -393,9 +446,70 @@ begin
   if nullif(trim(p_message), '') is not null then
     insert into messages (reservation_id, expediteur_id, contenu)
     values (v_res.id, auth.uid(), left(trim(p_message), 2000));
+    update reservations set lu_passager_le = now() where id = v_res.id;
   end if;
   return v_res.id;
 end;
+$$;
+
+-- Écrire au conducteur d'un trajet sans demander de place.
+create or replace function public.contacter_conducteur(p_trajet uuid, p_message text) returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  v_trajet trajets;
+  v_id     uuid;
+begin
+  if not est_verifie() then raise exception 'Accès réservé aux membres vérifiés.'; end if;
+  if nullif(trim(p_message), '') is null then raise exception 'Écrivez votre message.'; end if;
+  select * into v_trajet from trajets where id = p_trajet;
+  if v_trajet.id is null or not v_trajet.actif then raise exception 'Ce trajet n''est plus disponible.'; end if;
+  if v_trajet.conducteur_id = auth.uid() then raise exception 'C''est votre propre trajet.'; end if;
+
+  select id into v_id from reservations where trajet_id = p_trajet and passager_id = auth.uid();
+  if v_id is null then
+    insert into reservations (trajet_id, passager_id, statut, lu_conducteur_le) values (p_trajet, auth.uid(), 'contact', 'epoch') returning id into v_id;
+  end if;
+  insert into messages (reservation_id, expediteur_id, contenu) values (v_id, auth.uid(), left(trim(p_message), 2000));
+  update reservations set lu_passager_le = now() where id = v_id;
+  return v_id;
+end;
+$$;
+
+-- Boîte de réception : toutes mes conversations, la plus récente d'abord.
+create or replace function public.mes_conversations()
+returns table (
+  reservation_id uuid, statut text, je_conduis boolean,
+  autre_prenom text, autre_initiale text,
+  depart_ville text, destination_nom text,
+  dernier_message text, dernier_le timestamptz, dernier_de_moi boolean, non_lus integer
+)
+language sql stable security definer set search_path = public as $$
+  select r.id, r.statut, t.conducteur_id = auth.uid(),
+    a.prenom, upper(left(a.nom, 1)),
+    t.depart_ville, t.destination_nom,
+    d.contenu, d.created_at, d.expediteur_id = auth.uid(),
+    (select count(*) from messages m
+      where m.reservation_id = r.id and m.expediteur_id <> auth.uid()
+        and m.created_at > case when t.conducteur_id = auth.uid() then r.lu_conducteur_le else r.lu_passager_le end)::integer
+  from reservations r
+  join trajets t on t.id = r.trajet_id
+  join profils a on a.id = case when t.conducteur_id = auth.uid() then r.passager_id else t.conducteur_id end
+  join lateral (
+    select m.contenu, m.created_at, m.expediteur_id from messages m
+    where m.reservation_id = r.id order by m.created_at desc limit 1
+  ) d on true
+  where est_verifie() and auth.uid() in (r.passager_id, t.conducteur_id)
+  order by d.created_at desc;
+$$;
+
+-- Marque une conversation comme lue par le membre connecté.
+create or replace function public.marquer_lu(p_reservation uuid) returns void
+language sql security definer set search_path = public as $$
+  update reservations r set
+    lu_passager_le = case when r.passager_id = auth.uid() then now() else r.lu_passager_le end,
+    lu_conducteur_le = case when t.conducteur_id = auth.uid() then now() else r.lu_conducteur_le end
+  from trajets t
+  where t.id = r.trajet_id and r.id = p_reservation and auth.uid() in (r.passager_id, t.conducteur_id);
 $$;
 
 -- Le conducteur accepte ou refuse une demande.
@@ -411,6 +525,7 @@ begin
   select * into v_trajet from trajets where id = v_res.trajet_id for update;
   if v_res.id is null or v_trajet.conducteur_id <> auth.uid() then raise exception 'Réservation introuvable.'; end if;
   if v_res.statut = 'annulee' then raise exception 'Le passager a annulé sa demande.'; end if;
+  if v_res.statut = 'contact' then raise exception 'Ce membre n''a pas demandé de place.'; end if;
 
   if p_accepter then
     select count(*) into v_prises from reservations
@@ -505,6 +620,23 @@ begin
     justificatif_path = case when p_statut in ('verifie','refuse') then null else justificatif_path end
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
+end;
+$$;
+
+-- Valide ou refuse un conducteur après contrôle de ses documents.
+-- Les chemins des fichiers sont oubliés : les fichiers sont effacés du stockage.
+create or replace function public.admin_valider_conducteur(p_membre uuid, p_valider boolean) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
+  update profils set
+    conducteur_statut = case when p_valider then 'valide' else 'refuse' end,
+    conducteur_valide_le = case when p_valider then now() else null end,
+    permis_path = null, identite_path = null
+  where id = p_membre;
+  if not found then raise exception 'Membre introuvable.'; end if;
+  -- Un conducteur refusé ne peut plus proposer ses trajets.
+  if not p_valider then update trajets set actif = false where conducteur_id = p_membre; end if;
 end;
 $$;
 
@@ -637,10 +769,10 @@ create policy trajets_lecture on public.trajets for select to authenticated
   using (public.est_verifie());
 drop policy if exists trajets_creation on public.trajets;
 create policy trajets_creation on public.trajets for insert to authenticated
-  with check (public.est_verifie() and conducteur_id = auth.uid());
+  with check (public.est_conducteur() and conducteur_id = auth.uid());
 drop policy if exists trajets_modification on public.trajets;
 create policy trajets_modification on public.trajets for update to authenticated
-  using (public.est_verifie() and conducteur_id = auth.uid())
+  using (public.est_conducteur() and conducteur_id = auth.uid())
   with check (conducteur_id = auth.uid());
 drop policy if exists trajets_suppression on public.trajets;
 create policy trajets_suppression on public.trajets for delete to authenticated
@@ -676,7 +808,9 @@ create policy contact_suppression on public.demandes_contact for delete to authe
 -- Fonctions : fermées par défaut, ouvertes une par une.
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
-  public.est_verifie(), public.est_admin(), public.mon_etablissement_gere(),
+  public.est_verifie(), public.est_admin(), public.est_conducteur(), public.mon_etablissement_gere(),
+  public.soumettre_documents_conducteur(text, text, text), public.admin_valider_conducteur(uuid, boolean),
+  public.contacter_conducteur(uuid, text), public.mes_conversations(), public.marquer_lu(uuid),
   public.participe_reservation(uuid),
   public.utiliser_code(text), public.creer_invitation(), public.utiliser_invitation(text),
   public.soumettre_justificatif(text),
@@ -705,3 +839,22 @@ create policy justificatifs_lecture on storage.objects for select to authenticat
 drop policy if exists justificatifs_suppression on storage.objects;
 create policy justificatifs_suppression on storage.objects for delete to authenticated
   using (bucket_id = 'justificatifs' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));
+
+-- ---------------------------------------------------------------------
+-- 11. STOCKAGE PRIVÉ DES DOCUMENTS DES CONDUCTEURS
+--     (permis et pièce d'identité, effacés après contrôle)
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('documents-conducteur', 'documents-conducteur', false, 5242880, array['application/pdf','image/jpeg','image/png'])
+on conflict (id) do nothing;
+
+drop policy if exists documents_conducteur_depot on storage.objects;
+create policy documents_conducteur_depot on storage.objects for insert to authenticated
+  with check (bucket_id = 'documents-conducteur' and (storage.foldername(name))[1] = auth.uid()::text);
+drop policy if exists documents_conducteur_lecture on storage.objects;
+create policy documents_conducteur_lecture on storage.objects for select to authenticated
+  using (bucket_id = 'documents-conducteur' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));
+drop policy if exists documents_conducteur_suppression on storage.objects;
+create policy documents_conducteur_suppression on storage.objects for delete to authenticated
+  using (bucket_id = 'documents-conducteur' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));

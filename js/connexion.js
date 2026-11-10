@@ -53,6 +53,7 @@
             nom: f.nom.value.trim(),
             categorie: f.categorie.value,
             etablissement_declare: f.etablissement.value.trim(),
+            conducteur: f.conducteur.value,
           },
         },
       }));

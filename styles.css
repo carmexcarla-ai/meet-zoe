@@ -570,3 +570,28 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
   .mock__resultat { align-items: flex-start; }
   .temoignage { padding: 28px 22px; }
 }
+
+/* =========================================================
+   Messagerie (boîte de réception) et documents conducteur
+   ========================================================= */
+.pastille { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 99px; background: var(--vert); color: #fff; font-size: .75rem; font-weight: 700; vertical-align: middle; }
+.pastille[hidden] { display: none; }
+.conversation { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; background: #fff; border: 1px solid var(--bord); border-radius: var(--rayon); padding: 16px 20px; font: inherit; color: inherit; cursor: pointer; }
+.conversation:hover { border-color: var(--violet); }
+.conversation--nonlu { border-color: var(--vert); background: #f4fbf9; }
+.conversation__texte { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.conversation__texte strong { color: var(--nuit); }
+.conversation small { color: var(--texte-doux); font-size: .84rem; }
+.conversation__extrait { color: var(--texte-doux); font-size: .93rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conversation--nonlu .conversation__extrait { color: var(--nuit); font-weight: 600; }
+.conversation__cote { display: grid; gap: 6px; justify-items: end; flex: none; }
+.badge--contact { background: var(--lavande); color: var(--violet); }
+.badge--cond-en_attente { background: #fff4d6; color: #8a5a00; }
+.badge--cond-valide { background: #dcf4ee; color: #14705c; }
+.badge--cond-refuse { background: #fdecea; color: #b3261e; }
+.bloc-conducteur { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--bord); display: grid; gap: 6px; justify-items: start; }
+.result__side .lien { min-height: 32px; }
+@media (max-width: 560px) {
+  .conversation { align-items: flex-start; padding: 14px 16px; }
+  .conversation__cote small { font-size: .76rem; }
+}
