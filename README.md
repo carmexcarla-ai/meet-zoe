@@ -77,7 +77,8 @@ limité à quelques e-mails par heure.
 
 | Page              | Pour qui              | Ce qu'on y fait                                                        |
 |-------------------|-----------------------|------------------------------------------------------------------------|
-| `index.html`      | Tout le monde         | Accueil en 4 sections : promesse, constat, étapes, questions            |
+| `index.html`      | Tout le monde         | Accueil : promesse, exemple, constat, fonctionnalités, étapes, questions |
+| `a-propos.html`   | Tout le monde         | Qui sommes-nous : origine du projet, ce que nous faisons, engagements   |
 | `etablissements.html` | Établissements    | Offre partenaires, formules, formulaire de contact                     |
 | `connexion.html`  | Tout le monde         | Connexion, création de compte, mot de passe oublié                     |
 | `espace.html`     | Membres               | Vérification du compte, recherche, trajets, réservations, messages, profil |

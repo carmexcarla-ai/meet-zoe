@@ -14,8 +14,6 @@
 <body>
   <a class="skip" href="#contenu">Aller au contenu</a>
 
-  <a class="skip" href="#contenu">Aller au contenu</a>
-
   <!-- ===== En-tête ===== -->
   <header class="header">
     <div class="wrap header__in">
@@ -33,8 +31,9 @@
         <span></span><span></span><span></span>
       </button>
       <nav class="nav" id="menu" aria-label="Navigation principale">
+        <a href="#fonctionnalites">Fonctionnalités</a>
         <a href="#etapes">Comment ça marche</a>
-        <a href="#faq">Questions</a>
+        <a href="a-propos.html">Qui sommes-nous</a>
         <a href="etablissements.html">Établissements</a>
         <a href="connexion.html">Connexion</a>
         <a class="btn btn--primary btn--sm" href="connexion.html#inscription">Créer mon compte</a>
@@ -95,46 +94,204 @@
       </div>
     </section>
 
-    <!-- ===== 2. Le constat et la réponse ===== -->
-    <section class="section" id="constat">
+    <!-- ===== 2. Meet Zoe en clair ===== -->
+    <section class="section" id="concept">
       <div class="wrap">
-        <h2>Des trajets pensés pour vos rythmes de soignants.</h2>
+        <p class="eyebrow">Meet Zoe en clair</p>
+        <h2>Une plateforme de covoiturage réservée au monde du soin.</h2>
+        <p class="section__intro">Meet Zoe met en relation des étudiants et des professionnels du sanitaire et du médico-social qui font le même trajet, aux mêmes horaires, vers le même établissement. L'un conduit, les autres montent : tout le monde arrive à l'heure.</p>
+
+        <div class="scenario">
+          <p class="scenario__label">Un exemple</p>
+          <article class="scenario__carte">
+            <span class="avatar">CL</span>
+            <h3>Camille, étudiante infirmière</h3>
+            <p>En stage au centre hospitalier d'Évreux, prise de poste à 6 h 45. Elle habite Vernon et n'a pas de voiture. Aucun bus n'arrive assez tôt.</p>
+            <span class="tag">Cherche un trajet</span>
+          </article>
+          <div class="scenario__lien" aria-hidden="true"><span>94%</span><small>compatible</small></div>
+          <article class="scenario__carte">
+            <span class="avatar avatar--vert">TR</span>
+            <h3>Thomas, aide-soignant</h3>
+            <p>Il fait Vernon → Évreux chaque matin pour sa prise de poste, seul dans sa voiture, avec deux places libres.</p>
+            <span class="tag tag--ok">Propose un trajet</span>
+          </article>
+          <p class="scenario__fin"><b>Meet Zoe les met en relation.</b> Camille réserve une place, ils s'organisent par message et partagent la route pendant les cinq semaines du stage.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 3. Le constat ===== -->
+    <section class="section section--lav" id="constat">
+      <div class="wrap">
+        <p class="eyebrow">Le constat</p>
+        <h2>Un lieu de stage éloigné, ce sont des frais et de la fatigue en plus.</h2>
         <div class="grid3">
           <article class="card">
             <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/></svg></span>
             <h3>Horaires décalés</h3>
-            <p>Prises de poste à 6 h 00, nuits, week-ends : trouvez des trajets calés sur votre planning, pas sur celui des bus.</p>
+            <p>Prises de poste à 6 h 00, nuits, week-ends : les transports en commun ne suivent pas le rythme des services.</p>
           </article>
           <article class="card">
             <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s7-6.2 7-11.5A7 7 0 005 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></span>
             <h3>Lieux isolés</h3>
-            <p>Hôpitaux et structures en zone rurale ou périphérique : rejoignez-les même sans voiture.</p>
+            <p>Hôpitaux et structures en zone rurale ou périphérique, parfois à des dizaines de kilomètres, et qui changent à chaque stage.</p>
           </article>
           <article class="card">
-            <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.700-7-5.500-7-10V6l7-3z"/><path d="M9 12l2.200 2.200L15 10.500"/></svg></span>
-            <h3>Un réseau fermé et vérifié</h3>
-            <p>Un réseau 100 % fermé au secteur : vous voyagez uniquement avec des étudiants et des collègues vérifiés.</p>
+            <span class="card__icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.500" y="6" width="17" height="12" rx="2.500"/><circle cx="12" cy="12" r="2.500"/><path d="M7 9.500v5M17 9.500v5"/></svg></span>
+            <h3>Des dépenses qui s'accumulent</h3>
+            <p>Carburant, voiture empruntée, et parfois un logement loué près du lieu de stage : certains étudiants paient deux loyers.</p>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- ===== 3. Comment ça marche ===== -->
+    <!-- ===== 4. Ce que vous faites sur Meet Zoe ===== -->
+    <section class="section" id="fonctionnalites">
+      <div class="wrap">
+        <p class="eyebrow">Ce que vous faites sur Meet Zoe</p>
+        <h2>Des trajets pensés pour vos rythmes de soignants.</h2>
+        <div class="fonctions">
+
+          <article class="fonction">
+            <div class="mock" aria-hidden="true">
+              <div class="mock__ligne"><b>Vernon</b><span>→</span><b>Centre hospitalier, Évreux</b></div>
+              <div class="result__tags">
+                <span class="tag">Lun → Ven</span><span class="tag">Arrivée 06:40</span><span class="tag">2 places</span><span class="tag">Détour max. 10 km</span>
+              </div>
+              <span class="mock__bouton">Publier le trajet</span>
+            </div>
+            <h3>Proposez votre trajet</h3>
+            <p>Vous conduisez ? Indiquez votre départ, votre établissement, vos jours, votre heure d'arrivée et le détour que vous acceptez. C'est publié en une minute.</p>
+          </article>
+
+          <article class="fonction">
+            <div class="mock" aria-hidden="true">
+              <div class="mock__resultat">
+                <div class="result__score" style="--p:94">94%</div>
+                <div>
+                  <strong>Thomas R.</strong> <span class="badge badge--ok">Vérifié</span>
+                  <small>Aide-soignant · Vernon → Évreux</small>
+                  <div class="result__tags"><span class="tag tag--ok">Sur le chemin</span><span class="tag tag--ok">Arrivée 06:40</span></div>
+                </div>
+              </div>
+            </div>
+            <h3>Trouvez un covoiturage compatible</h3>
+            <p>Indiquez où vous allez et à quelle heure vous devez arriver. Meet Zoe compare les destinations, les dates, les horaires et les détours, puis classe les trajets par compatibilité.</p>
+          </article>
+
+          <article class="fonction">
+            <div class="mock" aria-hidden="true">
+              <div class="mock__demande">
+                <span class="avatar">CL</span>
+                <div><strong>Camille L.</strong><small>Étudiante infirmière</small></div>
+                <span class="badge badge--acceptee">Acceptée</span>
+              </div>
+              <div class="mock__demande">
+                <span class="avatar">IB</span>
+                <div><strong>Inès B.</strong><small>Élève aide-soignante</small></div>
+                <span class="badge badge--demandee">En attente</span>
+              </div>
+            </div>
+            <h3>Réservez une place</h3>
+            <p>Demandez une place en un clic. Le conducteur accepte ou refuse, et le nombre de places restantes se met à jour tout seul.</p>
+          </article>
+
+          <article class="fonction">
+            <div class="mock mock--fil" aria-hidden="true">
+              <div class="bulle"><p>Bonjour, je suis en stage au même endroit que vous !</p></div>
+              <div class="bulle bulle--moi"><p>Avec plaisir. 6 h 05 devant la gare ?</p></div>
+            </div>
+            <h3>Organisez-vous par message</h3>
+            <p>Point de rendez-vous, retard, changement de planning : vous échangez directement sur la plateforme, sans donner votre numéro.</p>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 5. Comment ça marche ===== -->
     <section class="section section--night" id="etapes">
       <div class="wrap">
+        <p class="eyebrow eyebrow--light">Comment ça marche</p>
         <h2>Simple, rapide, sécurisé.</h2>
         <ol class="steps steps--3">
           <li><span>01</span><h3>Inscrivez-vous et validez votre profil</h3><p>Deux minutes pour créer votre compte, puis un code d'établissement, un justificatif ou une invitation.</p></li>
           <li><span>02</span><h3>Indiquez votre lieu et vos horaires</h3><p>Lieu de stage ou de travail, dates, heures de prise et de fin de poste.</p></li>
           <li><span>03</span><h3>Matchez et voyagez avec vos collègues</h3><p>Meet Zoe vous propose les trajets compatibles. Réservez une place et organisez-vous par message.</p></li>
         </ol>
+        <p class="etapes__cta"><a class="btn btn--green" href="connexion.html#inscription">Créer mon compte</a></p>
       </div>
     </section>
 
-    <!-- ===== 4. Questions fréquentes et appel à l'action ===== -->
+    <!-- ===== 6. Pour qui ===== -->
+    <section class="section" id="pour-qui">
+      <div class="wrap">
+        <p class="eyebrow">Pour qui</p>
+        <h2>Trois publics, un même trajet.</h2>
+        <div class="grid3">
+          <article class="card card--public">
+            <h3>Étudiants</h3>
+            <p class="card__sous">Soins infirmiers, aides-soignants, autres formations sanitaires et médico-sociales</p>
+            <ul class="coches">
+              <li>Rejoignez un stage éloigné sans voiture</li>
+              <li>Évitez un second loyer près du lieu de stage</li>
+              <li>Partagez les frais de route</li>
+            </ul>
+          </article>
+          <article class="card card--public">
+            <h3>Professionnels</h3>
+            <p class="card__sous">Soignants diplômés, agents de soins, ASH, personnels éducatifs</p>
+            <ul class="coches">
+              <li>Des trajets calés sur vos gardes, nuits et week-ends</li>
+              <li>Moins de route seul, moins de frais</li>
+              <li>Des collègues du secteur, pas des inconnus</li>
+            </ul>
+          </article>
+          <article class="card card--public">
+            <h3>Établissements</h3>
+            <p class="card__sous">IFSI, hôpitaux, EHPAD, FAM, foyers de vie</p>
+            <ul class="coches">
+              <li>Facilitez l'accès aux stages et aux postes</li>
+              <li>Distribuez des codes d'accès à vos équipes</li>
+              <li>Suivez l'usage avec des chiffres globaux</li>
+            </ul>
+            <a class="lien-fleche" href="etablissements.html">Découvrir l'offre <span aria-hidden="true">→</span></a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 7. Accès vérifié ===== -->
+    <section class="section section--lav" id="acces">
+      <div class="wrap">
+        <p class="eyebrow">Un réseau fermé et vérifié</p>
+        <h2>Trois façons d'entrer, une seule exigence : appartenir au secteur.</h2>
+        <p class="section__intro">Personne ne voit les trajets avant d'avoir été vérifié. Meet Zoe n'est pas ouvert au grand public.</p>
+        <div class="grid3">
+          <article class="card card--num">
+            <span class="num">1</span>
+            <h3>Code d'établissement</h3>
+            <p>Votre institut ou votre employeur partenaire vous remet un code. L'accès est immédiat.</p>
+          </article>
+          <article class="card card--num">
+            <span class="num">2</span>
+            <h3>Justificatif individuel</h3>
+            <p>Certificat de scolarité, carte professionnelle ou attestation d'employeur, examiné par notre équipe puis effacé.</p>
+          </article>
+          <article class="card card--num">
+            <span class="num">3</span>
+            <h3>Invitation d'un membre</h3>
+            <p>Un membre déjà vérifié vous invite et se porte garant de votre appartenance au secteur.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 8. Questions fréquentes et appel à l'action ===== -->
     <section class="section" id="faq">
       <div class="wrap faq">
-        <h2>Vos questions, en bref.</h2>
+        <h2>Vos questions, nos réponses.</h2>
         <div class="faq__liste">
           <details>
             <summary>Qui peut s'inscrire ?</summary>
@@ -147,6 +304,26 @@
           <details>
             <summary>Est-ce que c'est sécurisé ?</summary>
             <p>Personne ne voit les trajets avant d'avoir été vérifié. Les autres membres ne voient que votre prénom, l'initiale de votre nom, votre statut et votre établissement : jamais votre e-mail ni votre téléphone. Un compte peut être suspendu à tout moment.</p>
+          </details>
+          <details>
+            <summary>Combien ça coûte ?</summary>
+            <p>L'inscription est gratuite pour les étudiants et les professionnels. Le service est financé par les établissements partenaires, qui s'abonnent pour leurs étudiants et leurs équipes.</p>
+          </details>
+          <details>
+            <summary>Comment se partagent les frais de trajet ?</summary>
+            <p>Le conducteur et ses passagers s'organisent librement entre eux. Meet Zoe ne prend aucune commission sur les trajets et ne gère aucun paiement.</p>
+          </details>
+          <details>
+            <summary>Je n'ai pas le permis, puis-je m'inscrire ?</summary>
+            <p>Oui. Vous pouvez utiliser Meet Zoe uniquement comme passager : vous cherchez un trajet et vous demandez une place.</p>
+          </details>
+          <details>
+            <summary>Où Meet Zoe est-il disponible ?</summary>
+            <p>Le service démarre en Normandie, autour d'Évreux. Il s'étendra ensuite à d'autres territoires, au fil des inscriptions et des établissements partenaires.</p>
+          </details>
+          <details>
+            <summary>Que deviennent mes données ?</summary>
+            <p>Elles servent uniquement à faire fonctionner le service et ne sont pas revendues. Votre justificatif est effacé après vérification, et vous pouvez supprimer votre compte à tout moment depuis votre profil.</p>
           </details>
         </div>
 
@@ -168,7 +345,9 @@
       </div>
       <nav aria-label="Pied de page">
         <a href="index.html">Accueil</a>
+        <a href="a-propos.html">Qui sommes-nous</a>
         <a href="etablissements.html">Établissements</a>
+        <a href="index.html#faq">Questions</a>
         <a href="connexion.html">Connexion</a>
       </nav>
     </div>
