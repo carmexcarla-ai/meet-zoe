@@ -5,6 +5,9 @@
   const { sb, $, toast, occupe, req } = Zoe;
   const montrer = Zoe.onglets($('#onglets'));
 
+  // Arrivée depuis « Créer mon compte » : on affiche tout de suite le bon onglet.
+  if (location.hash === '#inscription') montrer('inscription');
+
   if (!sb) { Zoe.pageNonConfiguree(); return; }
 
   // Le lien « mot de passe oublié » reçu par e-mail ramène sur cette page.
@@ -22,7 +25,6 @@
   const { data: { session } } = await sb.auth.getSession();
   if (session && !recuperation) { entrer(); return; }
   if (recuperation) montrer('nouveau');
-  else if (location.hash === '#inscription') montrer('inscription');
 
   $('#lien-oubli').addEventListener('click', () => montrer('oubli'));
 
