@@ -664,3 +664,4 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
   .fiche__chiffres { grid-template-columns: 1fr 1fr; }
   .photo-profil { align-items: flex-start; }
 }
+.note--haut { margin-top: 14px; }
