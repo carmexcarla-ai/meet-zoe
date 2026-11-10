@@ -138,6 +138,29 @@ create table if not exists public.messages (
 );
 create index if not exists messages_reservation_idx on public.messages (reservation_id, created_at);
 
+-- Recherches enregistrées : le besoin d'un membre, gardé tant qu'aucun
+-- trajet ne convient. Sert aussi à montrer aux conducteurs ce qui est demandé.
+create table if not exists public.besoins (
+  id                uuid primary key default gen_random_uuid(),
+  membre_id         uuid not null references public.profils (id) on delete cascade,
+  depart_ville      text not null check (char_length(depart_ville) <= 80),
+  depart_lat        double precision not null,
+  depart_lng        double precision not null,
+  destination_ville text not null check (char_length(destination_ville) <= 80),
+  dest_lat          double precision not null,
+  dest_lng          double precision not null,
+  date_debut        date not null,
+  date_fin          date not null,
+  jours             smallint[] not null check (cardinality(jours) between 1 and 7 and jours <@ array[1,2,3,4,5,6,7]::smallint[]),
+  heure_arrivee     time not null,
+  heure_retour      time,
+  marge_min         smallint not null default 60 check (marge_min between 15 and 180),
+  vu_le             timestamptz not null default now(),
+  created_at        timestamptz not null default now(),
+  check (date_fin >= date_debut)
+);
+create index if not exists besoins_membre_idx on public.besoins (membre_id);
+
 create table if not exists public.demandes_contact (
   id         uuid primary key default gen_random_uuid(),
   nom        text not null check (char_length(nom) between 1 and 120),
@@ -361,58 +384,156 @@ $$;
 -- 5. TRAJETS, RECHERCHE ET RÉSERVATIONS
 -- ---------------------------------------------------------------------
 
--- Matching : compare la destination, la date, le jour, l'heure d'arrivée
--- et le détour imposé au conducteur pour passer prendre le passager.
-create or replace function public.rechercher_trajets(
+-- Matching. Pour un besoin (départ, destination, période, jours, heure de
+-- prise de poste, heure de fin de poste, marge acceptée), trouve les trajets :
+--   - vers la même destination (5 km au plus) ;
+--   - dont le détour pour passer prendre le passager reste acceptable ;
+--   - qui roulent au moins un des jours demandés sur la période ;
+--   - dont l'aller OU le retour colle aux horaires, dans la marge.
+-- Les écarts d'heure sont calculés « modulo 24 h » pour les postes de nuit.
+drop function if exists public.rechercher_trajets(double precision, double precision, double precision, double precision, date, time);
+
+create or replace function public.trajets_compatibles(
+  p_membre uuid,
   p_dep_lat double precision, p_dep_lng double precision,
   p_dest_lat double precision, p_dest_lng double precision,
-  p_date date, p_heure time
+  p_debut date, p_fin date, p_jours smallint[],
+  p_arrivee time, p_retour time, p_marge integer
+)
+returns table (
+  trajet_id uuid, detour double precision, d_dest double precision,
+  aller_ok boolean, retour_ok boolean, avance_min integer, attente_min integer,
+  dates_communes integer, jours_communs smallint[], cree_le timestamptz
+)
+language sql stable security definer set search_path = public as $$
+  select t.id, x.detour, x.d_dest,
+    x.avance <= p_marge,
+    coalesce(x.attente <= p_marge, false),
+    x.avance, x.attente,
+    c.n,
+    array(select j from unnest(p_jours) j where j = any (t.jours) order by j)::smallint[],
+    t.created_at
+  from trajets t
+  join profils p on p.id = t.conducteur_id and p.statut = 'verifie' and p.conducteur_statut = 'valide'
+  cross join lateral (
+    select
+      distance_km(t.dest_lat, t.dest_lng, p_dest_lat, p_dest_lng) as d_dest,
+      greatest(0,
+        distance_km(t.depart_lat, t.depart_lng, p_dep_lat, p_dep_lng)
+        + distance_km(p_dep_lat, p_dep_lng, t.dest_lat, t.dest_lng)
+        - distance_km(t.depart_lat, t.depart_lng, t.dest_lat, t.dest_lng)) as detour,
+      -- Minutes d'avance à l'arrivée, puis minutes d'attente avant le retour.
+      ((extract(epoch from (p_arrivee - t.heure_arrivee)) / 60)::integer + 1440) % 1440 as avance,
+      case when p_retour is null or t.heure_retour is null then null
+           else ((extract(epoch from (t.heure_retour - p_retour)) / 60)::integer + 1440) % 1440 end as attente
+  ) x
+  cross join lateral (
+    select count(*)::integer as n
+    from generate_series(greatest(p_debut, t.date_debut, current_date)::timestamp,
+                         least(p_fin, t.date_fin, p_debut + 366)::timestamp, interval '1 day') d
+    where extract(isodow from d)::smallint = any (p_jours)
+      and extract(isodow from d)::smallint = any (t.jours)
+  ) c
+  where t.actif
+    and t.conducteur_id <> p_membre
+    and x.d_dest <= 5
+    and x.detour <= greatest(t.detour_max_km, 1)
+    and c.n > 0
+    and (x.avance <= p_marge or coalesce(x.attente <= p_marge, false));
+$$;
+
+-- Recherche sur une période, aller et retour, avec une note de compatibilité :
+-- 40 points pour le détour, 25 pour les horaires, 20 pour les jours couverts,
+-- 15 si tous les trajets demandés (aller, et retour s'il est demandé) sont assurés.
+create or replace function public.rechercher_trajets_periode(
+  p_dep_lat double precision, p_dep_lng double precision,
+  p_dest_lat double precision, p_dest_lng double precision,
+  p_debut date, p_fin date, p_jours smallint[],
+  p_arrivee time, p_retour time default null, p_marge integer default 60
 )
 returns table (
   id uuid, conducteur_id uuid, prenom text, initiale text, categorie text, etablissement text,
   depart_ville text, destination_nom text, destination_ville text,
   date_debut date, date_fin date, jours smallint[], heure_arrivee time, heure_retour time,
   places smallint, places_restantes integer, commentaire text,
-  detour_km integer, avance_min integer, score integer, ma_reservation text
+  detour_km integer, aller_ok boolean, retour_ok boolean, avance_min integer, attente_min integer,
+  dates_communes integer, dates_demandees integer, jours_communs smallint[],
+  score integer, ma_reservation text
 )
 language sql stable security definer set search_path = public as $$
-  with candidats as (
-    select t.*,
-      distance_km(t.dest_lat, t.dest_lng, p_dest_lat, p_dest_lng) as d_dest,
-      greatest(0,
-        distance_km(t.depart_lat, t.depart_lng, p_dep_lat, p_dep_lng)
-        + distance_km(p_dep_lat, p_dep_lng, t.dest_lat, t.dest_lng)
-        - distance_km(t.depart_lat, t.depart_lng, t.dest_lat, t.dest_lng)) as detour,
-      extract(epoch from (p_heure - t.heure_arrivee)) / 60 as avance
-    from trajets t
-    where est_verifie()
-      and t.actif
-      and t.conducteur_id <> auth.uid()
-      and p_date between t.date_debut and t.date_fin
-      and extract(isodow from p_date)::smallint = any (t.jours)
+  with demande as (
+    select greatest(count(*), 1)::integer as n
+    from generate_series(greatest(p_debut, current_date)::timestamp, least(p_fin, p_debut + 366)::timestamp, interval '1 day') d
+    where extract(isodow from d)::smallint = any (p_jours)
   )
-  select c.id, c.conducteur_id, p.prenom, upper(left(p.nom, 1)), p.categorie,
+  select t.id, t.conducteur_id, p.prenom, upper(left(p.nom, 1)), p.categorie,
     coalesce(e.nom, p.etablissement_declare),
-    c.depart_ville, c.destination_nom, c.destination_ville,
-    c.date_debut, c.date_fin, c.jours, c.heure_arrivee, c.heure_retour,
-    c.places,
-    (c.places - (select count(*) from reservations r where r.trajet_id = c.id and r.statut = 'acceptee'))::integer,
-    c.commentaire,
-    round(c.detour)::integer,
-    round(c.avance)::integer,
+    t.depart_ville, t.destination_nom, t.destination_ville,
+    t.date_debut, t.date_fin, t.jours, t.heure_arrivee, t.heure_retour,
+    t.places,
+    (t.places - (select count(*) from reservations r where r.trajet_id = t.id and r.statut = 'acceptee'))::integer,
+    t.commentaire,
+    round(c.detour)::integer, c.aller_ok, c.retour_ok, c.avance_min, c.attente_min,
+    c.dates_communes, demande.n, c.jours_communs,
     round(
-      55 * (1 - c.detour / greatest(c.detour_max_km, 1))
-      + 35 * (1 - c.avance / 90)
-      + 10 * (1 - c.d_dest / 5)
+      40 * (1 - c.detour / greatest(t.detour_max_km, 1))
+      + 25 * (1 - (case when c.aller_ok and c.retour_ok then (c.avance_min + c.attente_min) / 2.0
+                        when c.aller_ok then c.avance_min else c.attente_min end)::numeric / greatest(p_marge, 1))
+      + 20 * least(1, c.dates_communes::numeric / demande.n)
+      + 15 * (case when c.aller_ok and (p_retour is null or c.retour_ok) then 1 else 0 end)
     )::integer as score,
-    (select r.statut from reservations r where r.trajet_id = c.id and r.passager_id = auth.uid())
-  from candidats c
-  join profils p on p.id = c.conducteur_id and p.statut = 'verifie' and p.conducteur_statut = 'valide'
+    (select r.statut from reservations r where r.trajet_id = t.id and r.passager_id = auth.uid())
+  from trajets_compatibles(auth.uid(), p_dep_lat, p_dep_lng, p_dest_lat, p_dest_lng,
+         p_debut, p_fin, p_jours, p_arrivee, p_retour, least(greatest(p_marge, 15), 180)) c
+  join trajets t on t.id = c.trajet_id
+  join profils p on p.id = t.conducteur_id
   left join etablissements e on e.id = p.etablissement_id
-  where c.d_dest <= 5
-    and c.avance between 0 and 90
-    and c.detour <= greatest(c.detour_max_km, 1)
-  order by score desc, c.heure_arrivee desc;
+  cross join demande
+  where est_verifie()
+  order by score desc, c.dates_communes desc;
+$$;
+
+-- Mes recherches enregistrées, avec le nombre de trajets compatibles
+-- et le nombre de trajets publiés depuis ma dernière consultation.
+create or replace function public.mes_besoins()
+returns table (
+  id uuid, depart_ville text, depart_lat double precision, depart_lng double precision,
+  destination_ville text, dest_lat double precision, dest_lng double precision,
+  date_debut date, date_fin date, jours smallint[], heure_arrivee time, heure_retour time, marge_min smallint,
+  nb_trajets integer, nb_nouveaux integer
+)
+language sql stable security definer set search_path = public as $$
+  select b.id, b.depart_ville, b.depart_lat, b.depart_lng, b.destination_ville, b.dest_lat, b.dest_lng,
+    b.date_debut, b.date_fin, b.jours, b.heure_arrivee, b.heure_retour, b.marge_min,
+    (select count(*) from trajets_compatibles(b.membre_id, b.depart_lat, b.depart_lng, b.dest_lat, b.dest_lng,
+        b.date_debut, b.date_fin, b.jours, b.heure_arrivee, b.heure_retour, b.marge_min))::integer,
+    (select count(*) from trajets_compatibles(b.membre_id, b.depart_lat, b.depart_lng, b.dest_lat, b.dest_lng,
+        b.date_debut, b.date_fin, b.jours, b.heure_arrivee, b.heure_retour, b.marge_min) c
+      where c.cree_le > b.vu_le)::integer
+  from besoins b
+  where est_verifie() and b.membre_id = auth.uid()
+  order by b.created_at desc;
+$$;
+
+create or replace function public.nb_besoins() returns integer
+language sql stable security definer set search_path = public as $$
+  select count(*)::integer from besoins where membre_id = auth.uid();
+$$;
+
+-- Ce que les autres membres recherchent en ce moment, sans aucun nom :
+-- aide les conducteurs à savoir quels trajets proposer.
+create or replace function public.besoins_ouverts()
+returns table (
+  depart_ville text, destination_ville text, jours smallint[],
+  heure_arrivee time, heure_retour time, date_debut date, date_fin date
+)
+language sql stable security definer set search_path = public as $$
+  select b.depart_ville, b.destination_ville, b.jours, b.heure_arrivee, b.heure_retour, b.date_debut, b.date_fin
+  from besoins b
+  join profils p on p.id = b.membre_id and p.statut = 'verifie'
+  where est_verifie() and b.membre_id <> auth.uid() and b.date_fin >= current_date
+  order by b.created_at desc
+  limit 30;
 $$;
 
 create or replace function public.demander_reservation(p_trajet uuid, p_message text) returns uuid
@@ -698,11 +819,12 @@ alter table public.trajets          enable row level security;
 alter table public.reservations     enable row level security;
 alter table public.messages         enable row level security;
 alter table public.demandes_contact enable row level security;
+alter table public.besoins          enable row level security;
 
 -- On retire tous les droits par défaut, puis on n'accorde que le nécessaire.
 revoke all on public.etablissements, public.profils, public.codes_acces, public.invitations,
               public.trajets, public.reservations, public.messages, public.demandes_contact,
-              public.membres, public.etablissements_publics
+              public.besoins, public.membres, public.etablissements_publics
   from anon, authenticated;
 
 grant select on public.membres, public.etablissements_publics to authenticated;
@@ -719,6 +841,8 @@ grant update (depart_ville, depart_lat, depart_lng, destination_nom, destination
               date_debut, date_fin, jours, heure_arrivee, heure_retour, places, detour_max_km, commentaire, actif)
   on public.trajets to authenticated;
 grant select on public.reservations to authenticated;
+grant select, insert, delete on public.besoins to authenticated;
+grant update (vu_le) on public.besoins to authenticated;
 grant select, insert on public.messages to authenticated;
 grant insert (nom, email, organisme, message) on public.demandes_contact to anon, authenticated;
 grant select, delete on public.demandes_contact to authenticated;
@@ -778,6 +902,20 @@ drop policy if exists trajets_suppression on public.trajets;
 create policy trajets_suppression on public.trajets for delete to authenticated
   using (conducteur_id = auth.uid() or public.est_admin());
 
+-- Recherches enregistrées : chacun gère les siennes (10 au maximum).
+drop policy if exists besoins_lecture on public.besoins;
+create policy besoins_lecture on public.besoins for select to authenticated
+  using (membre_id = auth.uid());
+drop policy if exists besoins_creation on public.besoins;
+create policy besoins_creation on public.besoins for insert to authenticated
+  with check (public.est_verifie() and membre_id = auth.uid() and public.nb_besoins() < 10);
+drop policy if exists besoins_modification on public.besoins;
+create policy besoins_modification on public.besoins for update to authenticated
+  using (membre_id = auth.uid()) with check (membre_id = auth.uid());
+drop policy if exists besoins_suppression on public.besoins;
+create policy besoins_suppression on public.besoins for delete to authenticated
+  using (membre_id = auth.uid());
+
 -- Réservations : visibles du passager et du conducteur concernés.
 drop policy if exists reservations_lecture on public.reservations;
 create policy reservations_lecture on public.reservations for select to authenticated
@@ -814,7 +952,8 @@ grant execute on function
   public.participe_reservation(uuid),
   public.utiliser_code(text), public.creer_invitation(), public.utiliser_invitation(text),
   public.soumettre_justificatif(text),
-  public.rechercher_trajets(double precision, double precision, double precision, double precision, date, time),
+  public.rechercher_trajets_periode(double precision, double precision, double precision, double precision, date, date, smallint[], time, time, integer),
+  public.mes_besoins(), public.nb_besoins(), public.besoins_ouverts(),
   public.demander_reservation(uuid, text), public.repondre_reservation(uuid, boolean),
   public.annuler_reservation(uuid),
   public.creer_code(text, integer, date, uuid), public.stats_etablissement(uuid),

@@ -76,7 +76,7 @@
     <!-- ===== Espace membre ===== -->
     <div id="espace" hidden>
       <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Mon espace">
-        <button type="button" role="tab" data-onglet="rechercher" aria-selected="true">Rechercher</button>
+        <button type="button" role="tab" data-onglet="rechercher" aria-selected="true">Rechercher <span class="pastille" id="pastille-recherche" hidden></span></button>
         <button type="button" role="tab" data-onglet="proposer" aria-selected="false">Proposer un trajet</button>
         <button type="button" role="tab" data-onglet="trajets" aria-selected="false">Mes trajets</button>
         <button type="button" role="tab" data-onglet="reservations" aria-selected="false">Mes réservations</button>
@@ -87,6 +87,10 @@
       <!-- Rechercher -->
       <section data-panneau="rechercher">
         <h1>Trouver un covoiturage</h1>
+
+        <!-- Mes recherches enregistrées -->
+        <div class="besoins" id="besoins" hidden></div>
+
         <div class="demo">
           <form class="demo__form" id="form-recherche">
             <label>Je pars de
@@ -95,16 +99,47 @@
             <label>Je vais à
               <input type="text" id="r-destination" placeholder="Commune de l'établissement" required>
             </label>
-            <label>Date
-              <input type="date" id="r-date" required>
+            <div class="form__row">
+              <label>Du
+                <input type="date" id="r-debut" required>
+              </label>
+              <label>Au
+                <input type="date" id="r-fin" required>
+              </label>
+            </div>
+            <fieldset>
+              <legend>Mes jours</legend>
+              <div class="jours">
+                <label class="jour"><input type="checkbox" name="rjours" value="1" checked><span>Lun</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="2" checked><span>Mar</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="3" checked><span>Mer</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="4" checked><span>Jeu</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="5" checked><span>Ven</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="6"><span>Sam</span></label>
+                <label class="jour"><input type="checkbox" name="rjours" value="7"><span>Dim</span></label>
+              </div>
+            </fieldset>
+            <div class="form__row">
+              <label>Prise de poste
+                <input type="time" id="r-heure" value="06:45" required>
+              </label>
+              <label>Fin de poste <small>(facultatif)</small>
+                <input type="time" id="r-retour">
+              </label>
+            </div>
+            <label>J'accepte d'arriver en avance ou d'attendre
+              <select id="r-marge">
+                <option value="30">jusqu'à 30 minutes</option>
+                <option value="60" selected>jusqu'à 1 heure</option>
+                <option value="90">jusqu'à 1 h 30</option>
+                <option value="120">jusqu'à 2 heures</option>
+              </select>
             </label>
-            <label>Je dois arriver avant
-              <input type="time" id="r-heure" value="06:45" required>
-            </label>
+            <p class="aide">Horaires différents selon les jours ? Faites une recherche par horaire.</p>
             <button class="btn btn--primary" type="submit">Trouver un trajet</button>
           </form>
           <div class="demo__results" id="resultats" aria-live="polite">
-            <div class="empty">Indiquez votre trajet pour voir les covoiturages compatibles.</div>
+            <div class="empty">Indiquez vos jours et vos horaires pour voir les covoiturages compatibles, à l'aller comme au retour.</div>
           </div>
         </div>
       </section>
@@ -112,6 +147,9 @@
       <!-- Proposer -->
       <section data-panneau="proposer" hidden>
         <h1>Proposer un trajet</h1>
+
+        <!-- Ce que les autres membres recherchent en ce moment -->
+        <div class="recherches" id="recherches-ouvertes" hidden></div>
 
         <!-- Avant de conduire : permis et pièce d'identité -->
         <div class="carte-form" id="conducteur-docs" hidden>
@@ -173,10 +211,11 @@
             <label>Heure d'arrivée sur place
               <input type="time" name="heure_arrivee" required>
             </label>
-            <label>Heure de retour <small>(facultatif)</small>
+            <label>Heure de départ du retour <small>(facultatif)</small>
               <input type="time" name="heure_retour">
             </label>
           </div>
+          <p class="aide">Indiquez l'heure de retour pour être trouvé par ceux qui finissent en même temps que vous. Horaires différents selon les jours ? Publiez un trajet par horaire : le bouton « Dupliquer » de « Mes trajets » vous évite de tout ressaisir.</p>
           <div class="form__row">
             <label>Places proposées
               <input type="number" name="places" min="1" max="8" value="2" required>

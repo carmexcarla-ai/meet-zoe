@@ -595,3 +595,34 @@ code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-si
   .conversation { align-items: flex-start; padding: 14px 16px; }
   .conversation__cote small { font-size: .76rem; }
 }
+
+/* =========================================================
+   Recherche sur une période et recherches enregistrées
+   ========================================================= */
+.app .demo { grid-template-columns: 390px 1fr; }
+.demo__form .form__row { gap: 10px; }
+.demo__form .jour span { padding: 8px 12px; font-size: .86rem; }
+.demo__form .jours { gap: 6px; }
+.tag--non { background: #ecebf1; color: #5b5670; }
+.resultats__tete { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.resultats__tete p { color: var(--texte-doux); font-size: .95rem; }
+.resultats__tete b { color: var(--nuit); }
+.empty p { margin-top: 10px; }
+.besoins, .recherches { background: #fff; border: 1px solid var(--bord); border-radius: var(--rayon); padding: 20px 22px; margin-bottom: 22px; display: grid; gap: 10px; }
+.besoins h2, .recherches h2 { margin: 0; }
+.besoin { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--bord); }
+.besoin > div { flex: 1; min-width: 200px; }
+.besoin strong { color: var(--nuit); }
+.besoin small { display: block; color: var(--texte-doux); font-size: .86rem; }
+.besoin .lien { min-height: 44px; }
+.recherches { max-width: 760px; }
+.recherches ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.recherches li { display: flex; flex-wrap: wrap; gap: 4px 14px; padding-top: 8px; border-top: 1px solid var(--bord); font-size: .95rem; }
+.recherches li b { color: var(--nuit); }
+.recherches li span { color: var(--texte-doux); }
+@media (max-width: 940px) { .app .demo { grid-template-columns: 1fr; } }
+.demo__form { grid-template-columns: minmax(0, 1fr); }
+.form__row > *, .demo__form label { min-width: 0; }
+.demo__form .form__row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.demo__form input, .demo__form select { min-width: 0; }
+.demo__form input[type="date"], .demo__form input[type="time"] { padding-inline: 10px; }

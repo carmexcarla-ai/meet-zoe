@@ -98,40 +98,99 @@
     <p>${t.destination_ville} · arrivée ${Zoe.heure(t.heure_arrivee)}${t.heure_retour ? ` · retour ${Zoe.heure(t.heure_retour)}` : ''}</p>
     <p>${Zoe.jours(t.jours)} · du ${Zoe.date(t.date_debut)} au ${Zoe.date(t.date_fin)}</p>`;
 
-  /* ---------- 2. Recherche ---------- */
+  /* ---------- 2. Recherche sur une période, aller et retour ---------- */
   const rDepart = $('#r-depart');
   const rDestination = $('#r-destination');
   Zoe.champCommune(rDepart);
   Zoe.champCommune(rDestination);
-  $('#r-date').value = Zoe.aujourdhui();
-  $('#r-date').min = Zoe.aujourdhui();
+  const rDebut = $('#r-debut');
+  const rFin = $('#r-fin');
+  const dansJours = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('fr-CA'); };
+  rDebut.value = Zoe.aujourdhui();
+  rDebut.min = Zoe.aujourdhui();
+  rFin.value = dansJours(28);
+  rFin.min = Zoe.aujourdhui();
+  rDebut.addEventListener('change', () => { rFin.min = rDebut.value; if (rFin.value < rDebut.value) rFin.value = rDebut.value; });
 
-  async function rechercher() {
+  let derniereRecherche = null;
+
+  // Lit le formulaire : c'est « le besoin » du membre.
+  function lireRecherche() {
     const depart = Zoe.lireCommune(rDepart);
     const destination = Zoe.lireCommune(rDestination);
-    const trajets = await req(sb.rpc('rechercher_trajets', {
-      p_dep_lat: depart.lat, p_dep_lng: depart.lng,
-      p_dest_lat: destination.lat, p_dest_lng: destination.lng,
-      p_date: $('#r-date').value, p_heure: $('#r-heure').value,
+    const jours = $$('[name=rjours]:checked').map((c) => Number(c.value));
+    if (!jours.length) throw new Error('Cochez au moins un jour.');
+    if (rFin.value < rDebut.value) throw new Error('La date de fin doit suivre la date de début.');
+    return {
+      depart_ville: depart.ville, depart_lat: depart.lat, depart_lng: depart.lng,
+      destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
+      date_debut: rDebut.value, date_fin: rFin.value, jours,
+      heure_arrivee: $('#r-heure').value, heure_retour: $('#r-retour').value || null,
+      marge_min: Number($('#r-marge').value),
+    };
+  }
+
+  // Remet un besoin enregistré dans le formulaire.
+  function remplirRecherche(b) {
+    rDepart.value = b.depart_ville; rDepart.dataset.lat = b.depart_lat; rDepart.dataset.lng = b.depart_lng;
+    rDestination.value = b.destination_ville; rDestination.dataset.lat = b.dest_lat; rDestination.dataset.lng = b.dest_lng;
+    rDebut.value = b.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : b.date_debut;
+    rFin.value = b.date_fin;
+    $$('[name=rjours]').forEach((c) => { c.checked = b.jours.includes(Number(c.value)); });
+    $('#r-heure').value = Zoe.heure(b.heure_arrivee);
+    $('#r-retour').value = Zoe.heure(b.heure_retour);
+    $('#r-marge').value = b.marge_min;
+  }
+
+  const resumeBesoin = (b) => `${Zoe.jours(b.jours)} · ${Zoe.heure(b.heure_arrivee)}${b.heure_retour ? ` – ${Zoe.heure(b.heure_retour)}` : ''}`;
+
+  async function rechercher(besoin = lireRecherche()) {
+    derniereRecherche = besoin;
+    const trajets = await req(sb.rpc('rechercher_trajets_periode', {
+      p_dep_lat: besoin.depart_lat, p_dep_lng: besoin.depart_lng,
+      p_dest_lat: besoin.dest_lat, p_dest_lng: besoin.dest_lng,
+      p_debut: besoin.date_debut, p_fin: besoin.date_fin, p_jours: besoin.jours,
+      p_arrivee: besoin.heure_arrivee, p_retour: besoin.heure_retour, p_marge: besoin.marge_min,
     }));
     const zone = $('#resultats');
+    const enregistrer = html`<button class="btn btn--ghost btn--sm" type="button" data-action="enregistrer">Enregistrer cette recherche</button>`;
+
     if (!trajets.length) {
       zone.innerHTML = html`<div class="empty"><strong>Aucun trajet compatible pour le moment.</strong>
-        <p>Essayez une autre date ou une heure d'arrivée plus tardive. Vous pouvez aussi proposer votre propre trajet.</p></div>`;
+        <p>Enregistrez votre recherche : vous serez prévenu(e) ici dès qu'un conducteur proposera un trajet qui convient, et les conducteurs verront qu'il est demandé.</p>
+        <p><button class="btn btn--primary" type="button" data-action="enregistrer">Enregistrer cette recherche</button></p></div>`;
       return;
     }
-    zone.innerHTML = html`${trajets.map((t) => html`
+
+    const allerRetour = (t) => {
+      const aller = t.aller_ok
+        ? html`<span class="tag tag--ok">Aller : arrivée ${Zoe.heure(t.heure_arrivee)}</span>`
+        : html`<span class="tag tag--non">Aller : arrivée ${Zoe.heure(t.heure_arrivee)}, trop tôt ou trop tard</span>`;
+      if (!besoin.heure_retour) return aller;
+      const retour = t.retour_ok
+        ? html`<span class="tag tag--ok">Retour : départ ${Zoe.heure(t.heure_retour)}</span>`
+        : html`<span class="tag tag--non">${t.heure_retour ? `Retour : départ ${Zoe.heure(t.heure_retour)}, ne convient pas` : 'Pas de retour proposé'}</span>`;
+      return html`${aller}${retour}`;
+    };
+
+    zone.innerHTML = html`
+      <div class="resultats__tete">
+        <p><b>${trajets.length} trajet${trajets.length > 1 ? 's' : ''} compatible${trajets.length > 1 ? 's' : ''}</b> · ${resumeBesoin(besoin)}</p>
+        ${enregistrer}
+      </div>
+      ${trajets.map((t) => html`
       <article class="result" data-trajet="${t.id}">
         <div class="result__score" style="--p:${Math.max(0, t.score)}" aria-label="Compatibilité ${t.score} %">${Math.max(0, t.score)}%</div>
         <div class="result__main">
           <strong>${t.prenom} ${t.initiale}.</strong> <span class="badge badge--ok">Vérifié</span>
           <p>${Zoe.CATEGORIES[t.categorie]}${t.etablissement ? ` · ${t.etablissement}` : ''}</p>
           <p><b>${t.depart_ville} → ${t.destination_nom}</b> (${t.destination_ville})</p>
-          <p>${Zoe.jours(t.jours)} · jusqu'au ${Zoe.date(t.date_fin)}${t.heure_retour ? ` · retour ${Zoe.heure(t.heure_retour)}` : ''}</p>
+          <p>Roule ${Zoe.jours(t.jours)} · jusqu'au ${Zoe.date(t.date_fin)}</p>
           ${t.commentaire ? html`<p class="citation">« ${t.commentaire} »</p>` : ''}
           <div class="result__tags">
+            ${allerRetour(t)}
+            <span class="tag ${t.dates_communes >= t.dates_demandees ? 'tag--ok' : ''}">${Zoe.jours(t.jours_communs)} · ${t.dates_communes} jour${t.dates_communes > 1 ? 's' : ''} sur ${t.dates_demandees}</span>
             <span class="tag ${t.detour_km <= 2 ? 'tag--ok' : ''}">${t.detour_km <= 2 ? 'Sur le chemin' : `Détour de ${t.detour_km} km`}</span>
-            <span class="tag ${t.avance_min <= 15 ? 'tag--ok' : ''}">Arrivée ${Zoe.heure(t.heure_arrivee)}</span>
           </div>
         </div>
         <div class="result__side">
@@ -145,7 +204,7 @@
         </div>
         <form class="result__demande" hidden>
           <label><span data-libelle>Message au conducteur</span>
-            <textarea name="message" rows="2" maxlength="2000" placeholder="Bonjour, je suis en stage au même endroit…"></textarea>
+            <textarea name="message" rows="2" maxlength="2000" placeholder="Bonjour, je suis en stage au même endroit. Je cherche l'aller et le retour…"></textarea>
           </label>
           <button class="btn btn--green btn--sm" type="submit">Envoyer</button>
         </form>
@@ -154,13 +213,67 @@
 
   $('#form-recherche').addEventListener('submit', (e) => {
     e.preventDefault();
-    occupe(e.submitter, rechercher);
+    occupe(e.submitter, () => rechercher());
+  });
+
+  /* Recherches enregistrées : gardées tant qu'aucun trajet ne convient. */
+  let besoins = [];
+  async function chargerBesoins() {
+    const { data } = await sb.rpc('mes_besoins');
+    besoins = data || [];
+    const zone = $('#besoins');
+    zone.hidden = besoins.length === 0;
+    zone.innerHTML = html`
+      <h2>Mes recherches enregistrées</h2>
+      ${besoins.map((b) => html`
+        <div class="besoin" data-besoin="${b.id}">
+          <div>
+            <strong>${b.depart_ville} → ${b.destination_ville}</strong>
+            <small>${resumeBesoin(b)} · du ${Zoe.date(b.date_debut)} au ${Zoe.date(b.date_fin)}</small>
+          </div>
+          ${b.nb_nouveaux
+            ? html`<span class="badge badge--acceptee">${b.nb_nouveaux} nouveau${b.nb_nouveaux > 1 ? 'x' : ''}</span>`
+            : html`<span class="badge ${b.nb_trajets ? 'badge--contact' : 'badge--annulee'}">${b.nb_trajets ? `${b.nb_trajets} trajet${b.nb_trajets > 1 ? 's' : ''}` : 'Aucun trajet'}</span>`}
+          <button class="lien" type="button" data-action="voir">Voir</button>
+          <button class="lien lien--danger" type="button" data-action="oublier">Supprimer</button>
+        </div>`)}`;
+    const nouveaux = besoins.reduce((somme, b) => somme + b.nb_nouveaux, 0);
+    const pastille = $('#pastille-recherche');
+    pastille.hidden = nouveaux === 0;
+    pastille.textContent = nouveaux;
+  }
+  chargerBesoins();
+
+  $('#besoins').addEventListener('click', (e) => {
+    const bouton = e.target.closest('[data-action]');
+    if (!bouton) return;
+    const besoin = besoins.find((b) => b.id === bouton.closest('[data-besoin]').dataset.besoin);
+    occupe(bouton, async () => {
+      if (bouton.dataset.action === 'oublier') {
+        await req(sb.from('besoins').delete().eq('id', besoin.id));
+      } else {
+        remplirRecherche(besoin);
+        await rechercher();
+        // Les trajets viennent d'être consultés : ils ne sont plus « nouveaux ».
+        await req(sb.from('besoins').update({ vu_le: new Date().toISOString() }).eq('id', besoin.id));
+      }
+      await chargerBesoins();
+    });
   });
 
   $('#resultats').addEventListener('click', (e) => {
     const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
     if (bouton.dataset.action === 'voir-messages') { montrer('messages'); return; }
+    if (bouton.dataset.action === 'enregistrer') {
+      occupe(bouton, async () => {
+        if (besoins.length >= 10) throw new Error('Vous avez déjà 10 recherches enregistrées. Supprimez-en une.');
+        await req(sb.from('besoins').insert({ membre_id: moi.id, ...derniereRecherche }));
+        toast('Recherche enregistrée. Vous serez prévenu(e) ici des nouveaux trajets.');
+        await chargerBesoins();
+      });
+      return;
+    }
     // Le même formulaire sert à demander une place ou à poser une simple question.
     const question = bouton.dataset.action === 'question';
     const formulaire = $('.result__demande', bouton.closest('.result'));
@@ -184,7 +297,7 @@
       }
       await req(sb.rpc('demander_reservation', { p_trajet: carte.dataset.trajet, p_message: e.target.message.value }));
       toast('Demande envoyée au conducteur.');
-      await rechercher();
+      await rechercher(derniereRecherche);
     });
   });
 
@@ -202,6 +315,18 @@
   req(sb.from('etablissements_publics').select('nom').order('nom')).then((liste) => {
     $('#liste-etablissements').replaceChildren(...liste.map((e) => new Option(e.nom)));
   }).catch(() => {});
+
+  // Ce que les autres membres recherchent : aide à choisir quel trajet proposer.
+  sb.rpc('besoins_ouverts').then(({ data }) => {
+    const zone = $('#recherches-ouvertes');
+    if (!data || !data.length) return;
+    zone.hidden = false;
+    zone.innerHTML = html`
+      <h2>Trajets recherchés en ce moment</h2>
+      <p class="aide">Des membres attendent un conducteur pour ces trajets. Si l'un d'eux est sur votre route, proposez-le.</p>
+      <ul>${data.map((b) => html`<li><b>${b.depart_ville} → ${b.destination_ville}</b>
+        <span>${resumeBesoin(b)} · jusqu'au ${Zoe.date(b.date_fin)}</span></li>`)}</ul>`;
+  });
 
   // Seuls les conducteurs validés voient le formulaire de trajet.
   function afficherEtatConducteur() {
@@ -298,6 +423,7 @@
             <div class="element__actions">
               <span class="seats">Places : ${prises}/${t.places}</span>
               ${t.actif ? '' : html`<span class="badge badge--annulee">En pause</span>`}
+              <button class="lien" type="button" data-action="dupliquer">Dupliquer</button>
               <button class="lien" type="button" data-action="pause">${t.actif ? 'Mettre en pause' : 'Réactiver'}</button>
               <button class="lien lien--danger" type="button" data-action="supprimer">Supprimer</button>
             </div>
@@ -330,6 +456,24 @@
     const action = bouton.dataset.action;
 
     if (action === 'messages') { ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom); return; }
+    if (action === 'dupliquer') {
+      // Reprend le trajet dans le formulaire : il ne reste qu'à changer les jours ou les heures.
+      const t = $('#mes-trajets')._trajets[idTrajet];
+      tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng;
+      tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng;
+      formTrajet.destination_nom.value = t.destination_nom;
+      formTrajet.date_debut.value = t.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : t.date_debut;
+      formTrajet.date_fin.value = t.date_fin < formTrajet.date_debut.value ? formTrajet.date_debut.value : t.date_fin;
+      $$('[name=jours]', formTrajet).forEach((c) => { c.checked = t.jours.includes(Number(c.value)); });
+      formTrajet.heure_arrivee.value = Zoe.heure(t.heure_arrivee);
+      formTrajet.heure_retour.value = Zoe.heure(t.heure_retour);
+      formTrajet.places.value = t.places;
+      formTrajet.detour_max_km.value = t.detour_max_km;
+      formTrajet.commentaire.value = t.commentaire || '';
+      montrer('proposer');
+      toast('Trajet copié : modifiez les jours ou les horaires, puis publiez.');
+      return;
+    }
     if (action === 'supprimer' && !confirm('Supprimer ce trajet ? Les réservations liées seront annulées.')) return;
 
     occupe(bouton, async () => {

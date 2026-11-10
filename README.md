@@ -126,11 +126,23 @@ avant de demander une place. L'onglet **Messages** regroupe toutes les
 conversations et signale les messages non lus. On ne peut écrire à quelqu'un
 qu'à partir d'un de ses trajets.
 
-**Matching.** La recherche compare la destination, la date et le jour, l'heure
-d'arrivée (le conducteur doit arriver avant l'heure demandée, avec 90 minutes
-d'avance au plus) et le **détour** imposé au conducteur pour passer prendre le
-passager, dans la limite qu'il a fixée. Les distances sont calculées à vol
-d'oiseau entre les centres des communes.
+**Matching.** La recherche se fait sur une période : jours de la semaine,
+dates, heure de prise de poste, heure de fin de poste (facultative) et marge
+acceptée (30 minutes à 2 heures). Un trajet est proposé s'il va à la même
+destination, si le détour du conducteur reste dans la limite qu'il a fixée,
+s'il roule au moins un des jours demandés, et si son aller ou son retour colle
+aux horaires. Chaque résultat indique ce qui convient : aller, retour, nombre
+de jours couverts. Les postes de nuit (retour après minuit) sont gérés. Les
+distances sont calculées à vol d'oiseau entre les centres des communes.
+
+**Recherches enregistrées.** Quand rien ne convient, le membre enregistre sa
+recherche (10 au maximum). Il est prévenu dans son espace dès qu'un trajet
+compatible est publié. Les conducteurs voient, sans aucun nom, la liste des
+trajets recherchés.
+
+**Horaires variables.** Un trajet porte un seul horaire. Pour des horaires
+différents selon les jours, on publie un trajet par horaire (bouton
+« Dupliquer ») et on fait une recherche par horaire.
 
 **Rôles.** `membre`, `partenaire` (gère un établissement) et `admin`. Les rôles
 et les statuts ne peuvent être modifiés que par l'administration.
