@@ -761,3 +761,14 @@ h1 .accent { color: var(--violet); }
 .telephone .mock__demande strong { white-space: nowrap; }
 .telephone .mock__demande .badge { grid-column: 2; justify-self: start; }
 .telephone { text-align: left; }
+
+/* =========================================================
+   Accueil : photo d'illustration dans « Meet Zoe en clair »
+   ========================================================= */
+.clair { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+.clair__photo { margin: 0; }
+.clair__photo img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; border-radius: 26px; box-shadow: var(--ombre); background: var(--lavande); }
+.clair__photo figcaption { margin-top: 10px; font-size: .78rem; color: var(--texte-doux); text-align: right; }
+@media (max-width: 940px) {
+  .clair { grid-template-columns: 1fr; gap: 26px; }
+}
