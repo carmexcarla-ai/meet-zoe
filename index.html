@@ -5,8 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Meet Zoe — Le covoiturage pour ceux qui prennent soin des autres</title>
-  <meta name="description" content="Meet Zoe met en relation les étudiants et les professionnels du sanitaire et du médico-social pour covoiturer vers leurs lieux de stage et de travail. Accès réservé et vérifié.">
+  <title>Meet Zoe — Covoiturage entre étudiants en santé et soignants</title>
+  <meta name="description" content="Trouvez ou proposez un covoiturage vers votre hôpital, votre EHPAD ou votre lieu de stage. Réservé aux étudiants en santé et aux soignants vérifiés. Gratuit pendant le lancement, en Normandie.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Meet Zoe">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="Meet Zoe — Covoiturage entre étudiants en santé et soignants">
+  <meta property="og:description" content="Trouvez ou proposez un covoiturage vers votre hôpital, votre EHPAD ou votre lieu de stage. Réservé aux étudiants en santé et aux soignants vérifiés. Gratuit pendant le lancement, en Normandie.">
+  <meta property="og:url" content="https://meet-zoe.onrender.com/">
+  <meta property="og:image" content="https://meet-zoe.onrender.com/images/partage.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Meet Zoe, le covoiturage pour ceux qui prennent soin des autres">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="theme-color" content="#5425B8">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -45,17 +56,18 @@
 
   <main id="contenu">
 
-    <!-- ===== 1. Hero ===== -->
+    <!-- ===== 1. Haut de page ===== -->
     <section class="hero">
       <div class="wrap hero__in">
         <div class="hero__text">
-          <p class="pill"><span class="dot"></span> Lancement en Normandie · IFSI, hôpitaux, EHPAD</p>
+          <p class="pill"><span class="dot"></span> Lancement en Normandie, autour d'Évreux · Gratuit pendant le lancement</p>
           <h1>Le covoiturage pour ceux qui <span class="accent">prennent soin des autres.</span></h1>
-          <p class="lead">Connectez-vous avec les étudiants et les professionnels du sanitaire et médico-social pour vos trajets de stage et de travail.</p>
+          <p class="lead">Meet Zoe met en relation les étudiants en santé et les soignants qui font le même trajet vers le même hôpital, EHPAD ou lieu de stage. Entre collègues vérifiés, jamais avec le grand public.</p>
           <div class="hero__cta">
-            <a class="btn btn--primary" href="connexion.html#inscription">Créer mon compte</a>
-            <a class="lien-fleche" href="etablissements.html">Je représente un établissement <span aria-hidden="true">→</span></a>
+            <a class="btn btn--primary" href="connexion.html?je=passager#inscription">Je cherche un trajet</a>
+            <a class="btn btn--ghost" href="connexion.html?je=conducteur#inscription">Je propose un trajet</a>
           </div>
+          <p class="hero__etab"><a class="lien-fleche" href="etablissements.html">Je représente un établissement <span aria-hidden="true">→</span></a></p>
           <ul class="reperes">
             <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16l1.5-5a2 2 0 012-1.5h7a2 2 0 012 1.5L19 16"/><rect x="3.5" y="13" width="17" height="5" rx="1.5"/><circle cx="7.5" cy="15.5" r=".6"/><circle cx="16.5" cy="15.5" r=".6"/></svg><span>Trajets<br>partagés</span></li>
             <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.300-7 10-4-1.700-7-5.500-7-10V6l7-3z"/><path d="M9 12l2.200 2.200L15 10.500"/></svg><span>Profils<br>vérifiés</span></li>
@@ -66,6 +78,7 @@
 
         <div class="hero__visual" aria-hidden="true">
           <div class="trip trip--float">
+            <p class="trip__etiquette">Exemple de trajet</p>
             <div class="trip__head">
               <span class="avatar">CL</span>
               <div>
@@ -97,7 +110,21 @@
       </div>
     </section>
 
-    <!-- ===== 2. Meet Zoe en clair ===== -->
+    <!-- ===== 2. Comment ça marche ===== -->
+    <section class="section section--night" id="etapes">
+      <div class="wrap">
+        <p class="eyebrow eyebrow--light">Comment ça marche</p>
+        <h2>Simple, rapide, sécurisé.</h2>
+        <ol class="steps steps--3">
+          <li><span>01</span><h3>Inscrivez-vous et validez votre profil</h3><p>Deux minutes pour créer votre compte, puis un code d'établissement, un justificatif ou une invitation.</p></li>
+          <li><span>02</span><h3>Indiquez votre lieu et vos horaires</h3><p>Lieu de stage ou de travail, dates, heures de prise et de fin de poste.</p></li>
+          <li><span>03</span><h3>Matchez et voyagez avec vos collègues</h3><p>Meet Zoe vous propose les trajets compatibles. Réservez une place et organisez-vous par message.</p></li>
+        </ol>
+        <p class="etapes__cta"><a class="btn btn--green" href="connexion.html#inscription">Créer mon compte</a></p>
+      </div>
+    </section>
+
+    <!-- ===== 3. Meet Zoe en clair ===== -->
     <section class="section" id="concept">
       <div class="wrap">
         <p class="eyebrow">Meet Zoe en clair</p>
@@ -124,7 +151,7 @@
       </div>
     </section>
 
-    <!-- ===== 3. Le constat ===== -->
+    <!-- ===== 4. Le constat ===== -->
     <section class="section section--lav" id="constat">
       <div class="wrap">
         <p class="eyebrow">Le constat</p>
@@ -149,7 +176,7 @@
       </div>
     </section>
 
-    <!-- ===== 4. Ce que vous faites sur Meet Zoe ===== -->
+    <!-- ===== 5. Ce que vous faites sur Meet Zoe ===== -->
     <section class="section" id="fonctionnalites">
       <div class="wrap">
         <p class="eyebrow">Ce que vous faites sur Meet Zoe</p>
@@ -233,59 +260,7 @@
       </div>
     </section>
 
-    <!-- ===== 5. Comment ça marche ===== -->
-    <section class="section section--night" id="etapes">
-      <div class="wrap">
-        <p class="eyebrow eyebrow--light">Comment ça marche</p>
-        <h2>Simple, rapide, sécurisé.</h2>
-        <ol class="steps steps--3">
-          <li><span>01</span><h3>Inscrivez-vous et validez votre profil</h3><p>Deux minutes pour créer votre compte, puis un code d'établissement, un justificatif ou une invitation.</p></li>
-          <li><span>02</span><h3>Indiquez votre lieu et vos horaires</h3><p>Lieu de stage ou de travail, dates, heures de prise et de fin de poste.</p></li>
-          <li><span>03</span><h3>Matchez et voyagez avec vos collègues</h3><p>Meet Zoe vous propose les trajets compatibles. Réservez une place et organisez-vous par message.</p></li>
-        </ol>
-        <p class="etapes__cta"><a class="btn btn--green" href="connexion.html#inscription">Créer mon compte</a></p>
-      </div>
-    </section>
-
-    <!-- ===== 6. Pour qui ===== -->
-    <section class="section" id="pour-qui">
-      <div class="wrap">
-        <p class="eyebrow">Pour qui</p>
-        <h2>Trois publics, un même trajet.</h2>
-        <div class="grid3">
-          <article class="card card--public">
-            <h3>Étudiants</h3>
-            <p class="card__sous">Soins infirmiers, aides-soignants, autres formations sanitaires et médico-sociales</p>
-            <ul class="coches">
-              <li>Rejoignez un stage éloigné sans voiture</li>
-              <li>Évitez un second loyer près du lieu de stage</li>
-              <li>Partagez les frais de route</li>
-            </ul>
-          </article>
-          <article class="card card--public">
-            <h3>Professionnels</h3>
-            <p class="card__sous">Soignants diplômés, agents de soins, ASH, personnels éducatifs</p>
-            <ul class="coches">
-              <li>Des trajets calés sur vos gardes, nuits et week-ends</li>
-              <li>Moins de route seul, moins de frais</li>
-              <li>Des collègues du secteur, pas des inconnus</li>
-            </ul>
-          </article>
-          <article class="card card--public">
-            <h3>Établissements</h3>
-            <p class="card__sous">IFSI, hôpitaux, EHPAD, FAM, foyers de vie</p>
-            <ul class="coches">
-              <li>Facilitez l'accès aux stages et aux postes</li>
-              <li>Distribuez des codes d'accès à vos équipes</li>
-              <li>Suivez l'usage avec des chiffres globaux</li>
-            </ul>
-            <a class="lien-fleche" href="etablissements.html">Découvrir l'offre <span aria-hidden="true">→</span></a>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- ===== 7. Accès vérifié ===== -->
+    <!-- ===== 6. Accès vérifié ===== -->
     <section class="section section--lav" id="acces">
       <div class="wrap">
         <p class="eyebrow">Un réseau fermé et vérifié</p>
@@ -311,7 +286,7 @@
       </div>
     </section>
 
-    <!-- ===== Pour les établissements ===== -->
+    <!-- ===== 7. Pour les établissements ===== -->
     <section class="section section--bandeau">
       <div class="wrap">
         <div class="bandeau">

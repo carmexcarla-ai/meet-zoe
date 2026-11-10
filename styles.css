@@ -761,3 +761,17 @@ h1 .accent { color: var(--violet); }
 .telephone .mock__demande strong { white-space: nowrap; }
 .telephone .mock__demande .badge { grid-column: 2; justify-self: start; }
 .telephone { text-align: left; }
+
+/* =========================================================
+   Accueil : deux entrées (chercher / proposer), exemple légendé
+   ========================================================= */
+.hero__etab { margin-top: 6px; }
+.trip__etiquette { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--violet); margin-bottom: 12px; }
+.auth__rappel { text-align: center; color: var(--texte-doux); font-size: .95rem; max-width: 34ch; margin-top: -8px; }
+@media (max-width: 940px) {
+  .hero__etab { order: 0; }
+}
+@media (max-width: 560px) {
+  .hero__cta { gap: 10px; }
+  .hero__etab { text-align: center; }
+}

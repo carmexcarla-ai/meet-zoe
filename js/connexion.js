@@ -5,6 +5,13 @@
   const { sb, $, toast, occupe, req } = Zoe;
   const montrer = Zoe.onglets($('#onglets'));
 
+  // Arrivée depuis « Je cherche un trajet » ou « Je propose un trajet » :
+  // le choix passager ou conducteur est déjà coché.
+  const choix = new URLSearchParams(location.search).get('je');
+  if (choix === 'conducteur' || choix === 'passager') {
+    $('#form-inscription').conducteur.value = String(choix === 'conducteur');
+  }
+
   // Arrivée depuis « Créer mon compte » : on affiche tout de suite le bon onglet.
   if (location.hash === '#inscription') montrer('inscription');
 
