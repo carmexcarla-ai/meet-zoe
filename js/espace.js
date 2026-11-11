@@ -872,10 +872,12 @@
       </dl>
       ${f.vehicule ? html`<p><b>Véhicule :</b> ${f.vehicule}</p>` : ''}
       ${f.bio ? html`<p class="citation">« ${f.bio} »</p>` : ''}
-      ${f.avis.length ? html`<h4>Avis des passagers</h4>
+      <h4>Avis des passagers${f.nb_avis ? html` <small>(${f.nb_avis})</small>` : ''}</h4>
+      ${f.avis.length ? html`
         <ul class="fiche__avis">${f.avis.map((a) => html`<li>
           <span class="note-etoiles">${'★'.repeat(a.note)}</span><span class="etoiles-vides">${'★'.repeat(5 - a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
-          ${a.commentaire ? html`<p>${a.commentaire}</p>` : ''}</li>`)}</ul>` : ''}
+          ${a.commentaire ? html`<p>${a.commentaire}</p>` : html`<p class="aide">Note sans commentaire.</p>`}</li>`)}</ul>`
+        : html`<p class="aide fiche__vide">Aucun avis pour l'instant. Les passagers peuvent laisser une note et un commentaire après un covoiturage accepté${f.id === moi.id ? '' : ', depuis l\'onglet « Mes réservations »'}.</p>`}
       ${f.id === moi.id ? '' : html`<button class="lien lien--danger" type="button" data-signaler="${f.id}">Signaler ce membre</button>`}`;
     if (!fiche.open) fiche.showModal();
   }

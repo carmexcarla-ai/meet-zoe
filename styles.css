@@ -817,3 +817,5 @@ h1 .accent { color: var(--violet); }
 .avis-resume .note-etoiles { font-size: 1.15rem; }
 .etoiles-vides { color: var(--bord); font-size: .92rem; margin-right: 6px; }
 #mes-avis .fiche__avis { margin-top: 10px; }
+.fiche h4 small { font-weight: 500; color: var(--texte-doux); }
+.fiche__vide { background: var(--blanc); border: 1px dashed var(--bord); border-radius: 14px; padding: 14px; }
