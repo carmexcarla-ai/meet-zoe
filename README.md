@@ -98,6 +98,7 @@ limité à quelques e-mails par heure.
 | `index.html`      | Tout le monde         | Accueil : promesse, exemple, constat, fonctionnalités, étapes, questions |
 | `a-propos.html`   | Tout le monde         | Qui sommes-nous : origine du projet, ce que nous faisons, engagements   |
 | `etablissements.html` | Établissements    | Offre partenaires, formules, formulaire de contact                     |
+| `contact.html`    | Tout le monde         | Formulaire de contact ouvert à tous (profil, sujet, message)           |
 | `connexion.html`  | Tout le monde         | Connexion, création de compte, mot de passe oublié                     |
 | `espace.html`     | Membres               | Vérification du compte, recherche, trajets, réservations, messages, profil |
 | `partenaire.html` | Établissements        | Statistiques générales, codes d'accès, quota                           |

@@ -775,3 +775,10 @@ h1 .accent { color: var(--violet); }
   .hero__cta { gap: 10px; }
   .hero__etab { text-align: center; }
 }
+
+/* =========================================================
+   Page « Nous contacter »
+   ========================================================= */
+.contact__points { margin: 24px 0; }
+.split > div > .aide + .aide { margin-top: 10px; }
+.faq details p a { color: var(--violet); }

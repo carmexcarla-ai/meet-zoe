@@ -1,5 +1,5 @@
 /* =========================================================
-   Meet Zoe — formulaire de contact des établissements
+   Meet Zoe — formulaires de contact (page Contact et page Établissements)
    ========================================================= */
 const formContact = document.getElementById('contact');
 const message = document.getElementById('message');
@@ -9,7 +9,7 @@ formContact.addEventListener('submit', async (e) => {
   message.className = 'form__msg';
 
   if (!formContact.checkValidity()) {
-    message.textContent = 'Merci de compléter les champs avec une adresse e-mail valide.';
+    message.textContent = 'Merci de compléter tous les champs, avec une adresse e-mail valide.';
     message.classList.add('err');
     formContact.reportValidity();
     return;
@@ -34,8 +34,9 @@ formContact.addEventListener('submit', async (e) => {
   const { error } = await Zoe.sb.from('demandes_contact').insert({
     nom: formContact.nom.value.trim(),
     email: formContact.email.value.trim(),
-    organisme: formContact.organisme.value.trim(),
-    message: formContact.message.value.trim() || null,
+    // Page « Nous contacter » : le profil et le sujet remplacent l'établissement.
+    organisme: formContact.organisme ? formContact.organisme.value.trim() : formContact.profil.value,
+    message: (formContact.sujet ? `[${formContact.sujet.value}] ` : '') + formContact.message.value.trim() || null,
   });
   bouton.disabled = false;
 

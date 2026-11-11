@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Nous contacter — Meet Zoe</title>
+  <meta name="description" content="Une question, un problème, une idée ? Écrivez à l'équipe Meet Zoe. Étudiants, soignants et établissements sont les bienvenus.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Meet Zoe">
+  <meta property="og:locale" content="fr_FR">
+  <meta property="og:title" content="Nous contacter — Meet Zoe">
+  <meta property="og:description" content="Une question, un problème, une idée ? Écrivez à l'équipe Meet Zoe. Étudiants, soignants et établissements sont les bienvenus.">
+  <meta property="og:url" content="https://meet-zoe.onrender.com/contact.html">
+  <meta property="og:image" content="https://meet-zoe.onrender.com/images/partage.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Meet Zoe, le covoiturage pour ceux qui prennent soin des autres">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" type="image/svg+xml" href="images/icone.svg">
+  <link rel="apple-touch-icon" href="images/icone-180.png">
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
+  <!-- ===== En-tête ===== -->
+  <header class="header">
+    <div class="wrap header__in">
+      <a class="logo" href="index.html" aria-label="Meet Zoe, accueil">
+        <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+          <rect width="40" height="40" rx="12" fill="#5425B8"/>
+          <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+          <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+          <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+        </svg>
+        <span class="logo__text">meet <b>zoe</b></span>
+      </a>
+      <a class="btn btn--primary btn--sm header__cta" href="connexion.html#inscription">S'inscrire</a>
+      <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu">
+        <span></span><span></span><span></span>
+      </button>
+      <nav class="nav" id="menu" aria-label="Navigation principale">
+        <a href="index.html#fonctionnalites">Fonctionnalités</a>
+        <a href="index.html#etapes">Comment ça marche</a>
+        <a href="a-propos.html">Qui sommes-nous</a>
+        <a href="etablissements.html">Établissements</a>
+        <a href="connexion.html">Connexion</a>
+        <a class="btn btn--primary btn--sm" href="connexion.html#inscription">Créer mon compte</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="contenu">
+
+    <section class="section section--lav section--tete">
+      <div class="wrap split split--top">
+        <div>
+          <p class="eyebrow">Nous contacter</p>
+          <h1>Une question ? Écrivez-nous.</h1>
+          <p class="section__intro">Étudiant, soignant ou établissement : nous lisons tous les messages et nous vous répondons par e-mail.</p>
+          <ul class="coches contact__points">
+            <li>Un souci pour vous inscrire ou faire vérifier votre compte</li>
+            <li>Un problème sur un trajet ou avec un autre membre</li>
+            <li>Une question sur vos données</li>
+            <li>Un partenariat avec votre établissement</li>
+          </ul>
+          <p class="aide">Les e-mails automatiques de Meet Zoe ne reçoivent pas de réponse : pour nous joindre, passez toujours par cette page.</p>
+          <p class="aide">Pour signaler un membre, le plus rapide est le bouton « Signaler ce membre » sur sa fiche, dans votre espace.</p>
+        </div>
+
+        <form class="form" id="contact" novalidate>
+          <label>Je suis
+            <select name="profil" required>
+              <option value="">Choisir…</option>
+              <option>Étudiant(e)</option>
+              <option>Professionnel(le) de santé ou du médico-social</option>
+              <option>Représentant(e) d'un établissement</option>
+              <option>Autre</option>
+            </select>
+          </label>
+          <label>Sujet
+            <select name="sujet" required>
+              <option value="">Choisir…</option>
+              <option>Inscription ou vérification de mon compte</option>
+              <option>Problème technique</option>
+              <option>Problème sur un trajet ou avec un membre</option>
+              <option>Mes données personnelles</option>
+              <option>Partenariat avec un établissement</option>
+              <option>Autre question</option>
+            </select>
+          </label>
+          <label>Votre nom
+            <input type="text" name="nom" autocomplete="name" maxlength="120" required>
+          </label>
+          <label>Votre adresse e-mail <small>(pour vous répondre)</small>
+            <input type="email" name="email" autocomplete="email" maxlength="160" required>
+          </label>
+          <label class="piege" aria-hidden="true">Ne pas remplir
+            <input type="text" name="site_web" tabindex="-1" autocomplete="off">
+          </label>
+          <label>Votre message
+            <textarea name="message" rows="5" maxlength="1900" required placeholder="Expliquez-nous en quelques lignes."></textarea>
+          </label>
+          <button class="btn btn--primary" type="submit">Envoyer mon message</button>
+          <p class="form__msg" id="message" role="status"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer__haut">
+      <div class="footer__marque">
+        <a class="logo" href="index.html" aria-label="Meet Zoe, accueil">
+          <svg class="logo__mark" viewBox="0 0 40 40" aria-hidden="true">
+            <rect width="40" height="40" rx="12" fill="#5425B8"/>
+            <path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/>
+            <circle cx="11" cy="27" r="3" fill="#24A68A"/>
+            <circle cx="29" cy="27" r="3" fill="#EEE7FF"/>
+          </svg>
+          <span class="logo__text logo__text--light">meet <b>zoe</b></span>
+        </a>
+        <p>Le covoiturage pour ceux qui prennent soin des autres.</p>
+        <p class="footer__lieu"><span class="dot"></span> Lancement en Normandie</p>
+      </div>
+
+      <nav class="footer__col" aria-label="La plateforme">
+        <h2>La plateforme</h2>
+        <a href="index.html#fonctionnalites">Fonctionnalités</a>
+        <a href="index.html#etapes">Comment ça marche</a>
+        <a href="index.html#acces">Accès vérifié</a>
+        <a href="index.html#faq">Questions fréquentes</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Meet Zoe">
+        <h2>Meet Zoe</h2>
+        <a href="a-propos.html">Qui sommes-nous</a>
+        <a href="etablissements.html">Établissements</a>
+        <a href="contact.html">Nous contacter</a>
+      </nav>
+
+      <nav class="footer__col" aria-label="Mon compte">
+        <h2>Mon compte</h2>
+        <a href="connexion.html#inscription">Créer mon compte</a>
+        <a href="connexion.html">Connexion</a>
+      </nav>
+    </div>
+
+    <div class="wrap footer__confiance">
+      <span>Membres vérifiés un par un</span>
+      <span>Permis des conducteurs contrôlés</span>
+      <span>Fermé au grand public</span>
+    </div>
+
+    <div class="wrap footer__bas">
+      <p>© <span id="annee"></span> Meet Zoe · Ensemble, allons plus loin.</p>
+      <p>Mentions légales · Confidentialité · Conditions d'utilisation <em>(bientôt disponibles)</em></p>
+    </div>
+  </footer>
+
+  <script src="vendor/supabase.js"></script>
+  <script src="config.js"></script>
+  <script src="js/commun.js"></script>
+  <script src="app.js"></script>
+  <script src="js/contact.js"></script>
+</body>
+</html>
