@@ -782,3 +782,25 @@ h1 .accent { color: var(--violet); }
 .contact__points { margin: 24px 0; }
 .split > div > .aide + .aide { margin-top: 10px; }
 .faq details p a { color: var(--violet); }
+
+/* =========================================================
+   Formulaires simplifiés : raccourcis, options repliées
+   ========================================================= */
+.raccourcis { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+.raccourcis button { min-height: 44px; padding: 8px 16px; border-radius: 12px; border: 1.5px solid var(--bord); background: #fff; font: 600 .9rem var(--corps); color: var(--nuit); cursor: pointer; }
+.raccourcis button:hover { border-color: var(--violet); }
+.raccourcis button[aria-pressed="true"] { background: var(--lavande); border-color: var(--violet); color: var(--violet); }
+.demo__form fieldset, .carte-form fieldset { gap: 10px; }
+.demo__form legend, .carte-form legend { font-size: .98rem; font-weight: 700; margin-bottom: 4px; }
+.demo__form > label, .carte-form > label, .carte-form .form__row > label { font-size: .98rem; }
+.plus { border-top: 1px solid var(--bord); padding-top: 12px; }
+.plus summary { cursor: pointer; font-weight: 600; font-size: .92rem; color: var(--violet); min-height: 32px; }
+.plus[open] summary { margin-bottom: 12px; }
+.plus .aide { margin-top: 10px; }
+.result__phrase { font-weight: 700; color: var(--nuit) !important; font-size: 1rem !important; margin: 2px 0 6px; }
+.besoin .badge { white-space: normal; text-align: center; }
+@media (max-width: 560px) {
+  .raccourcis button { flex: 1 1 auto; }
+}
+.demo__form .raccourcis { gap: 6px; }
+.demo__form .raccourcis button { padding: 8px 10px; font-size: .84rem; }

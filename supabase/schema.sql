@@ -117,6 +117,8 @@ create table if not exists public.trajets (
   created_at        timestamptz not null default now(),
   check (date_fin >= date_debut)
 );
+-- Heure à laquelle le conducteur part de chez lui (affichée aux passagers).
+alter table public.trajets add column if not exists heure_depart time;
 create index if not exists trajets_conducteur_idx on public.trajets (conducteur_id);
 create index if not exists trajets_dates_idx on public.trajets (date_debut, date_fin) where actif;
 
@@ -541,7 +543,7 @@ returns table (
   detour_km integer, aller_ok boolean, retour_ok boolean, avance_min integer, attente_min integer,
   dates_communes integer, dates_demandees integer, jours_communs smallint[],
   score integer, ma_reservation text,
-  note_moyenne numeric, nb_avis integer, photo_path text
+  note_moyenne numeric, nb_avis integer, photo_path text, heure_depart time
 )
 language sql stable security definer set search_path = public as $$
   with demande as (
@@ -568,7 +570,8 @@ language sql stable security definer set search_path = public as $$
     (select r.statut from reservations r where r.trajet_id = t.id and r.passager_id = auth.uid()),
     (select round(avg(a.note), 1) from avis a where a.cible_id = t.conducteur_id and not a.masque),
     (select count(*) from avis a where a.cible_id = t.conducteur_id and not a.masque)::integer,
-    p.photo_path
+    p.photo_path,
+    t.heure_depart
   from trajets_compatibles(auth.uid(), p_dep_lat, p_dep_lng, p_dest_lat, p_dest_lng,
          p_debut, p_fin, p_jours, p_arrivee, p_retour, least(greatest(p_marge, 15), 180)) c
   join trajets t on t.id = c.trajet_id
@@ -1103,7 +1106,7 @@ grant delete on public.codes_acces to authenticated;
 grant select on public.invitations to authenticated;
 grant select, insert, delete on public.trajets to authenticated;
 grant update (depart_ville, depart_lat, depart_lng, destination_nom, destination_ville, dest_lat, dest_lng,
-              date_debut, date_fin, jours, heure_arrivee, heure_retour, places, detour_max_km, commentaire, actif)
+              date_debut, date_fin, jours, heure_depart, heure_arrivee, heure_retour, places, detour_max_km, commentaire, actif)
   on public.trajets to authenticated;
 grant select on public.reservations to authenticated;
 grant select, insert, delete on public.besoins to authenticated;

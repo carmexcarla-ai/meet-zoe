@@ -97,8 +97,76 @@
   const badgeReservation = (statut) => html`<span class="badge badge--${statut}">${Zoe.RESERVATIONS[statut]}</span>`;
   const resumeTrajet = (t) => html`
     <strong>${t.depart_ville} → ${t.destination_nom}</strong>
-    <p>${t.destination_ville} · arrivée ${Zoe.heure(t.heure_arrivee)}${t.heure_retour ? ` · retour ${Zoe.heure(t.heure_retour)}` : ''}</p>
+    <p>${t.destination_ville} · ${t.heure_depart ? `départ ${Zoe.heure(t.heure_depart)} · ` : ''}arrivée ${Zoe.heure(t.heure_arrivee)}${t.heure_retour ? ` · retour ${Zoe.heure(t.heure_retour)}` : ''}</p>
     <p>${Zoe.jours(t.jours)} · du ${Zoe.date(t.date_debut)} au ${Zoe.date(t.date_fin)}</p>`;
+
+  /* ---------- Raccourcis des formulaires : jours, horaires, durée ---------- */
+  const dansJours = (n, depuis = Zoe.aujourdhui()) => {
+    const d = new Date(`${depuis}T12:00:00`);
+    d.setDate(d.getDate() + n);
+    return d.toLocaleDateString('fr-CA');
+  };
+
+  // Branche les boutons « Lundi au vendredi », « Matin », « 4 semaines »… d'un formulaire.
+  // Un bouton reste allumé tant que les cases correspondent à ce qu'il propose.
+  function raccourcis(form, { cases, debut, fin, du, au, zoneDates }) {
+    const boutons = (groupe) => $$(`[data-raccourcis="${groupe}"] button`, form);
+    const allumer = (groupe, choisi) => boutons(groupe).forEach((b) => b.setAttribute('aria-pressed', b === choisi));
+
+    const synchroJours = () => {
+      const coches = cases().filter((c) => c.checked).map((c) => c.value).join(',');
+      allumer('jours', boutons('jours').find((b) => b.dataset.jours === coches));
+    };
+    boutons('jours').forEach((b) => b.addEventListener('click', () => {
+      const liste = b.dataset.jours.split(',');
+      cases().forEach((c) => { c.checked = liste.includes(c.value); });
+      synchroJours();
+    }));
+    cases().forEach((c) => c.addEventListener('change', synchroJours));
+
+    const synchroHoraires = () => allumer('horaires',
+      boutons('horaires').find((b) => b.dataset.debut === debut.value && b.dataset.fin === fin.value));
+    boutons('horaires').forEach((b) => b.addEventListener('click', () => {
+      debut.value = b.dataset.debut;
+      fin.value = b.dataset.fin;
+      synchroHoraires();
+    }));
+    [debut, fin].forEach((c) => c.addEventListener('change', synchroHoraires));
+
+    // Durée : un nombre de jours à partir d'aujourd'hui, ou « dates » pour choisir soi-même.
+    let dureeChoisie = '28';
+    const choisirDuree = (valeur) => {
+      dureeChoisie = String(valeur);
+      du.min = Zoe.aujourdhui();
+      if (dureeChoisie !== 'dates') {
+        du.value = Zoe.aujourdhui();
+        au.value = dansJours(Number(dureeChoisie) - 1);
+      }
+      au.min = du.value || Zoe.aujourdhui();
+      zoneDates.hidden = dureeChoisie !== 'dates';
+      allumer('duree', boutons('duree').find((b) => b.dataset.duree === dureeChoisie));
+    };
+    boutons('duree').forEach((b) => b.addEventListener('click', () => choisirDuree(b.dataset.duree)));
+    // La date « Au » suit toujours la date « Du ».
+    du.addEventListener('change', () => { au.min = du.value; if (au.value < du.value) au.value = du.value; });
+
+    return {
+      synchro: () => { synchroJours(); synchroHoraires(); },
+      duree: choisirDuree,
+      dureeActuelle: () => dureeChoisie,
+    };
+  }
+
+  // « du lundi au jeudi », « le week-end », « tous les jours », « lun, mer »…
+  const NOMS_JOURS = ['', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+  function phraseJours(jours) {
+    const j = [...jours].sort((a, b) => a - b);
+    if (j.length === 7) return 'tous les jours';
+    if (j.join() === '6,7') return 'le week-end';
+    if (j.length === 1) return `le ${NOMS_JOURS[j[0]]}`;
+    const suivis = j.every((v, i) => i === 0 || v === j[i - 1] + 1);
+    return suivis ? `du ${NOMS_JOURS[j[0]]} au ${NOMS_JOURS[j[j.length - 1]]}` : j.map((v) => NOMS_JOURS[v].slice(0, 3)).join(', ');
+  }
 
   /* ---------- 2. Recherche sur une période, aller et retour ---------- */
   const rDepart = $('#r-depart');
@@ -107,12 +175,25 @@
   Zoe.champCommune(rDestination);
   const rDebut = $('#r-debut');
   const rFin = $('#r-fin');
-  const dansJours = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toLocaleDateString('fr-CA'); };
-  rDebut.value = Zoe.aujourdhui();
-  rDebut.min = Zoe.aujourdhui();
-  rFin.value = dansJours(28);
-  rFin.min = Zoe.aujourdhui();
-  rDebut.addEventListener('change', () => { rFin.min = rDebut.value; if (rFin.value < rDebut.value) rFin.value = rDebut.value; });
+  const rRaccourcis = raccourcis($('#form-recherche'), {
+    cases: () => $$('[name=rjours]'), debut: $('#r-heure'), fin: $('#r-retour'),
+    du: rDebut, au: rFin, zoneDates: $('#r-dates'),
+  });
+  rRaccourcis.duree('28');
+  rRaccourcis.synchro();
+
+  // Le formulaire se souvient de la dernière recherche faite sur cet appareil.
+  const CLE_MEMOIRE = `zoe.recherche.${moi.id}`;
+  function memoriser(besoin) {
+    try { localStorage.setItem(CLE_MEMOIRE, JSON.stringify({ besoin, duree: rRaccourcis.dureeActuelle() })); } catch { /* stockage indisponible : sans gravité */ }
+  }
+  function retrouver() {
+    try {
+      const memo = JSON.parse(localStorage.getItem(CLE_MEMOIRE) || 'null');
+      if (!memo || !memo.besoin) return;
+      remplirRecherche(memo.besoin, memo.duree);
+    } catch { /* mémoire illisible : on garde le formulaire par défaut */ }
+  }
 
   let derniereRecherche = null;
 
@@ -122,7 +203,8 @@
     const destination = Zoe.lireCommune(rDestination);
     const jours = $$('[name=rjours]:checked').map((c) => Number(c.value));
     if (!jours.length) throw new Error('Cochez au moins un jour.');
-    if (rFin.value < rDebut.value) throw new Error('La date de fin doit suivre la date de début.');
+    if (!rDebut.value || !rFin.value) throw new Error('Indiquez la période de vos trajets.');
+    if (rFin.value < rDebut.value) throw new Error('La date « Au » doit être le même jour que la date « Du », ou après.');
     return {
       depart_ville: depart.ville, depart_lat: depart.lat, depart_lng: depart.lng,
       destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
@@ -132,22 +214,31 @@
     };
   }
 
-  // Remet un besoin enregistré dans le formulaire.
-  function remplirRecherche(b) {
+  // Remet un besoin dans le formulaire. Avec une durée (7, 28, 70), les dates
+  // repartent d'aujourd'hui ; sinon on affiche les dates du besoin, jamais dans le passé.
+  function remplirRecherche(b, duree = 'dates') {
     rDepart.value = b.depart_ville; rDepart.dataset.lat = b.depart_lat; rDepart.dataset.lng = b.depart_lng;
     rDestination.value = b.destination_ville; rDestination.dataset.lat = b.dest_lat; rDestination.dataset.lng = b.dest_lng;
-    rDebut.value = b.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : b.date_debut;
-    rFin.value = b.date_fin;
     $$('[name=rjours]').forEach((c) => { c.checked = b.jours.includes(Number(c.value)); });
     $('#r-heure').value = Zoe.heure(b.heure_arrivee);
     $('#r-retour').value = Zoe.heure(b.heure_retour);
     $('#r-marge').value = b.marge_min;
+    if (duree === 'dates' && b.date_fin >= Zoe.aujourdhui()) {
+      rDebut.value = b.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : b.date_debut;
+      rFin.value = b.date_fin;
+      rRaccourcis.duree('dates');
+    } else {
+      rRaccourcis.duree(duree === 'dates' ? '28' : duree);
+    }
+    rRaccourcis.synchro();
   }
+  retrouver();
 
-  const resumeBesoin = (b) => `${Zoe.jours(b.jours)} · ${Zoe.heure(b.heure_arrivee)}${b.heure_retour ? ` – ${Zoe.heure(b.heure_retour)}` : ''}`;
+  const resumeBesoin = (b) => `${phraseJours(b.jours)}, ${Zoe.heure(b.heure_arrivee)}${b.heure_retour ? ` – ${Zoe.heure(b.heure_retour)}` : ''}`;
 
   async function rechercher(besoin = lireRecherche()) {
     derniereRecherche = besoin;
+    memoriser(besoin);
     const trajets = await req(sb.rpc('rechercher_trajets_periode', {
       p_dep_lat: besoin.depart_lat, p_dep_lng: besoin.depart_lng,
       p_dest_lat: besoin.dest_lat, p_dest_lng: besoin.dest_lng,
@@ -166,7 +257,7 @@
 
     const allerRetour = (t) => {
       const aller = t.aller_ok
-        ? html`<span class="tag tag--ok">Aller : arrivée ${Zoe.heure(t.heure_arrivee)}</span>`
+        ? html`<span class="tag tag--ok">Aller : ${t.heure_depart ? `départ ${Zoe.heure(t.heure_depart)}, ` : ''}arrivée ${Zoe.heure(t.heure_arrivee)}</span>`
         : html`<span class="tag tag--non">Aller : arrivée ${Zoe.heure(t.heure_arrivee)}, trop tôt ou trop tard</span>`;
       if (!besoin.heure_retour) return aller;
       const retour = t.retour_ok
@@ -175,10 +266,16 @@
       return html`${aller}${retour}`;
     };
 
+    // Une phrase qui dit l'essentiel : aller, retour, et combien de jours.
+    const enClair = (t) => {
+      const trajet = t.aller_ok && t.retour_ok ? 'à l\'aller et au retour' : t.aller_ok ? 'à l\'aller seulement' : 'au retour seulement';
+      const joursCouverts = t.dates_communes >= t.dates_demandees ? 'tous vos jours' : `${t.dates_communes} jour${t.dates_communes > 1 ? 's' : ''} sur ${t.dates_demandees}`;
+      return `${t.prenom} peut vous emmener ${trajet}, ${joursCouverts}.`;
+    };
     const urls = await Zoe.photos(trajets.map((t) => t.photo_path));
     zone.innerHTML = html`
       <div class="resultats__tete">
-        <p><b>${trajets.length} trajet${trajets.length > 1 ? 's' : ''} compatible${trajets.length > 1 ? 's' : ''}</b> · ${resumeBesoin(besoin)}</p>
+        <p><b>${trajets.length} trajet${trajets.length > 1 ? 's' : ''} trouvé${trajets.length > 1 ? 's' : ''}</b> pour ${resumeBesoin(besoin)}</p>
         ${enregistrer}
       </div>
       ${trajets.map((t) => html`
@@ -193,6 +290,7 @@
               <p>${Zoe.CATEGORIES[t.categorie]}${t.etablissement ? ` · ${t.etablissement}` : ''}</p>
             </div>
           </div>
+          <p class="result__phrase">${enClair(t)}</p>
           <p><b>${t.depart_ville} → ${t.destination_nom}</b> (${t.destination_ville})</p>
           <p>Roule ${Zoe.jours(t.jours)} · jusqu'au ${Zoe.date(t.date_fin)}</p>
           ${t.commentaire ? html`<p class="citation">« ${t.commentaire} »</p>` : ''}
@@ -232,21 +330,27 @@
     besoins = data || [];
     const zone = $('#besoins');
     zone.hidden = besoins.length === 0;
+    const etat = (b) => {
+      if (b.date_fin < Zoe.aujourdhui()) return html`<span class="badge badge--annulee">Période terminée</span>`;
+      if (b.nb_nouveaux) return html`<span class="badge badge--acceptee">${b.nb_nouveaux} nouveau${b.nb_nouveaux > 1 ? 'x' : ''} trajet${b.nb_nouveaux > 1 ? 's' : ''}</span>`;
+      if (b.nb_trajets) return html`<span class="badge badge--contact">${b.nb_trajets} trajet${b.nb_trajets > 1 ? 's' : ''} disponible${b.nb_trajets > 1 ? 's' : ''}</span>`;
+      return html`<span class="badge badge--demandee">Aucun trajet pour l'instant, nous surveillons</span>`;
+    };
     zone.innerHTML = html`
       <h2>Mes recherches enregistrées</h2>
       ${besoins.map((b) => html`
         <div class="besoin" data-besoin="${b.id}">
           <div>
             <strong>${b.depart_ville} → ${b.destination_ville}</strong>
-            <small>${resumeBesoin(b)} · du ${Zoe.date(b.date_debut)} au ${Zoe.date(b.date_fin)}</small>
+            <small>${resumeBesoin(b)}, jusqu'au ${Zoe.date(b.date_fin)}</small>
           </div>
-          ${b.nb_nouveaux
-            ? html`<span class="badge badge--acceptee">${b.nb_nouveaux} nouveau${b.nb_nouveaux > 1 ? 'x' : ''}</span>`
-            : html`<span class="badge ${b.nb_trajets ? 'badge--contact' : 'badge--annulee'}">${b.nb_trajets ? `${b.nb_trajets} trajet${b.nb_trajets > 1 ? 's' : ''}` : 'Aucun trajet'}</span>`}
-          <button class="lien" type="button" data-action="voir">Voir</button>
+          ${etat(b)}
+          ${b.date_fin < Zoe.aujourdhui()
+            ? html`<button class="lien" type="button" data-action="relancer">Relancer</button>`
+            : html`<button class="lien" type="button" data-action="voir">Voir</button>`}
           <button class="lien lien--danger" type="button" data-action="oublier">Supprimer</button>
         </div>`)}`;
-    const nouveaux = besoins.reduce((somme, b) => somme + b.nb_nouveaux, 0);
+    const nouveaux = besoins.filter((b) => b.date_fin >= Zoe.aujourdhui()).reduce((somme, b) => somme + b.nb_nouveaux, 0);
     const pastille = $('#pastille-recherche');
     pastille.hidden = nouveaux === 0;
     pastille.textContent = nouveaux;
@@ -257,9 +361,20 @@
     const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
     const besoin = besoins.find((b) => b.id === bouton.closest('[data-besoin]').dataset.besoin);
+    const action = bouton.dataset.action;
     occupe(bouton, async () => {
-      if (bouton.dataset.action === 'oublier') {
+      if (action === 'oublier') {
         await req(sb.from('besoins').delete().eq('id', besoin.id));
+      } else if (action === 'relancer') {
+        // Période passée : la recherche repart d'aujourd'hui, pour la même durée.
+        const jours = Math.round((new Date(besoin.date_fin) - new Date(besoin.date_debut)) / 86400000);
+        const { id, nb_trajets, nb_nouveaux, ...champs } = besoin;
+        const neuf = { ...champs, date_debut: Zoe.aujourdhui(), date_fin: dansJours(jours) };
+        await req(sb.from('besoins').delete().eq('id', besoin.id));
+        await req(sb.from('besoins').insert({ membre_id: moi.id, ...neuf }));
+        remplirRecherche(neuf);
+        await rechercher();
+        toast('Recherche relancée à partir d\'aujourd\'hui.');
       } else {
         remplirRecherche(besoin);
         await rechercher();
@@ -316,9 +431,12 @@
   Zoe.champCommune(tDepart);
   Zoe.champCommune(tDestination);
   const formTrajet = $('#form-trajet');
-  formTrajet.date_debut.min = Zoe.aujourdhui();
-  formTrajet.date_debut.value = Zoe.aujourdhui();
-  formTrajet.date_debut.addEventListener('change', () => { formTrajet.date_fin.min = formTrajet.date_debut.value; });
+  const tRaccourcis = raccourcis(formTrajet, {
+    cases: () => $$('[name=jours]', formTrajet), debut: formTrajet.heure_arrivee, fin: formTrajet.heure_retour,
+    du: formTrajet.date_debut, au: formTrajet.date_fin, zoneDates: $('#t-dates'),
+  });
+  tRaccourcis.duree('28');
+  tRaccourcis.synchro();
 
   // Suggestions : les établissements partenaires déjà connus.
   req(sb.from('etablissements_publics').select('nom').order('nom')).then((liste) => {
@@ -385,7 +503,7 @@
       const destination = Zoe.lireCommune(tDestination);
       const jours = $$('[name=jours]:checked', formTrajet).map((c) => Number(c.value));
       if (!jours.length) throw new Error('Cochez au moins un jour.');
-      if (formTrajet.date_fin.value < formTrajet.date_debut.value) throw new Error('La date de fin doit suivre la date de début.');
+      if (formTrajet.date_fin.value < formTrajet.date_debut.value) throw new Error('La date « Au » doit être le même jour que la date « Du », ou après.');
 
       await req(sb.from('trajets').insert({
         conducteur_id: moi.id,
@@ -395,6 +513,7 @@
         date_debut: formTrajet.date_debut.value,
         date_fin: formTrajet.date_fin.value,
         jours,
+        heure_depart: formTrajet.heure_depart.value,
         heure_arrivee: formTrajet.heure_arrivee.value,
         heure_retour: formTrajet.heure_retour.value || null,
         places: Number(formTrajet.places.value),
@@ -403,7 +522,8 @@
       }));
       toast('Trajet publié.');
       formTrajet.reset();
-      formTrajet.date_debut.value = Zoe.aujourdhui();
+      tRaccourcis.duree('28');
+      tRaccourcis.synchro();
       delete tDepart.dataset.lat;
       delete tDestination.dataset.lat;
       montrer('trajets');
@@ -471,14 +591,17 @@
       tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng;
       tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng;
       formTrajet.destination_nom.value = t.destination_nom;
+      tRaccourcis.duree('dates');
       formTrajet.date_debut.value = t.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : t.date_debut;
       formTrajet.date_fin.value = t.date_fin < formTrajet.date_debut.value ? formTrajet.date_debut.value : t.date_fin;
       $$('[name=jours]', formTrajet).forEach((c) => { c.checked = t.jours.includes(Number(c.value)); });
+      formTrajet.heure_depart.value = Zoe.heure(t.heure_depart);
       formTrajet.heure_arrivee.value = Zoe.heure(t.heure_arrivee);
       formTrajet.heure_retour.value = Zoe.heure(t.heure_retour);
       formTrajet.places.value = t.places;
       formTrajet.detour_max_km.value = t.detour_max_km;
       formTrajet.commentaire.value = t.commentaire || '';
+      tRaccourcis.synchro();
       montrer('proposer');
       toast('Trajet copié : modifiez les jours ou les horaires, puis publiez.');
       return;

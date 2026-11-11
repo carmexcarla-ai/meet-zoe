@@ -98,22 +98,19 @@
 
         <div class="demo">
           <form class="demo__form" id="form-recherche">
-            <label>Je pars de
-              <input type="text" id="r-depart" placeholder="Commune de départ" required>
+            <label>D'où partez-vous ?
+              <input type="text" id="r-depart" placeholder="Votre commune" required>
             </label>
-            <label>Je vais à
-              <input type="text" id="r-destination" placeholder="Commune de l'établissement" required>
+            <label>Où allez-vous ?
+              <input type="text" id="r-destination" placeholder="Commune de l'hôpital, de l'EHPAD ou du stage" required>
             </label>
-            <div class="form__row">
-              <label>Du
-                <input type="date" id="r-debut" required>
-              </label>
-              <label>Au
-                <input type="date" id="r-fin" required>
-              </label>
-            </div>
             <fieldset>
-              <legend>Mes jours</legend>
+              <legend>Quels jours ?</legend>
+              <div class="raccourcis" data-raccourcis="jours">
+                <button type="button" data-jours="1,2,3,4,5">Lundi au vendredi</button>
+                <button type="button" data-jours="6,7">Week-end</button>
+                <button type="button" data-jours="1,2,3,4,5,6,7">Tous les jours</button>
+              </div>
               <div class="jours">
                 <label class="jour"><input type="checkbox" name="rjours" value="1" checked><span>Lun</span></label>
                 <label class="jour"><input type="checkbox" name="rjours" value="2" checked><span>Mar</span></label>
@@ -124,27 +121,56 @@
                 <label class="jour"><input type="checkbox" name="rjours" value="7"><span>Dim</span></label>
               </div>
             </fieldset>
-            <div class="form__row">
-              <label>Prise de poste
-                <input type="time" id="r-heure" value="06:45" required>
+            <fieldset>
+              <legend>Vos horaires</legend>
+              <div class="raccourcis" data-raccourcis="horaires">
+                <button type="button" data-debut="06:45" data-fin="14:15">Matin</button>
+                <button type="button" data-debut="13:45" data-fin="21:15">Après-midi</button>
+                <button type="button" data-debut="08:00" data-fin="16:00">Journée</button>
+                <button type="button" data-debut="21:00" data-fin="07:00">Nuit</button>
+              </div>
+              <div class="form__row">
+                <label>Je commence à
+                  <input type="time" id="r-heure" value="06:45" required>
+                </label>
+                <label>Je finis à
+                  <input type="time" id="r-retour" value="14:15" required>
+                </label>
+              </div>
+            </fieldset>
+            <fieldset>
+              <legend>Pendant combien de temps ?</legend>
+              <div class="raccourcis" data-raccourcis="duree">
+                <button type="button" data-duree="7">Cette semaine</button>
+                <button type="button" data-duree="28">4 semaines</button>
+                <button type="button" data-duree="70">10 semaines</button>
+                <button type="button" data-duree="dates">Choisir les dates</button>
+              </div>
+              <div class="form__row" id="r-dates" hidden>
+                <label>Du
+                  <input type="date" id="r-debut" required>
+                </label>
+                <label>Au
+                  <input type="date" id="r-fin" required>
+                </label>
+              </div>
+            </fieldset>
+            <details class="plus">
+              <summary>Plus d'options</summary>
+              <label>J'accepte d'arriver en avance ou d'attendre
+                <select id="r-marge">
+                  <option value="30">jusqu'à 30 minutes</option>
+                  <option value="60" selected>jusqu'à 1 heure</option>
+                  <option value="90">jusqu'à 1 h 30</option>
+                  <option value="120">jusqu'à 2 heures</option>
+                </select>
               </label>
-              <label>Fin de poste
-                <input type="time" id="r-retour" value="14:15" required>
-              </label>
-            </div>
-            <label>J'accepte d'arriver en avance ou d'attendre
-              <select id="r-marge">
-                <option value="30">jusqu'à 30 minutes</option>
-                <option value="60" selected>jusqu'à 1 heure</option>
-                <option value="90">jusqu'à 1 h 30</option>
-                <option value="120">jusqu'à 2 heures</option>
-              </select>
-            </label>
-            <p class="aide">Horaires différents selon les jours ? Faites une recherche par horaire.</p>
+              <p class="aide">Horaires différents selon les jours ? Faites une recherche par horaire.</p>
+            </details>
             <button class="btn btn--primary" type="submit">Trouver un trajet</button>
           </form>
           <div class="demo__results" id="resultats" aria-live="polite">
-            <div class="empty">Indiquez vos jours et vos horaires pour voir les covoiturages compatibles, à l'aller comme au retour.</div>
+            <div class="empty">Dites-nous où vous allez et à quels horaires : nous cherchons les covoiturages qui vous conviennent, à l'aller comme au retour.</div>
           </div>
         </div>
       </section>
@@ -181,46 +207,72 @@
 
         <form class="carte-form" id="form-trajet" hidden>
           <div class="form__row">
-            <label>Commune de départ
-              <input type="text" id="t-depart" required>
+            <label>D'où partez-vous ?
+              <input type="text" id="t-depart" placeholder="Votre commune" required>
             </label>
-            <label>Commune d'arrivée
-              <input type="text" id="t-destination" required>
+            <label>Où allez-vous ?
+              <input type="text" id="t-destination" placeholder="Commune de l'établissement" required>
             </label>
           </div>
-          <label>Établissement de destination
+          <label>Nom de l'établissement
             <input type="text" name="destination_nom" list="liste-etablissements" maxlength="120" placeholder="Ex. Centre hospitalier, IFSI, EHPAD…" required>
             <datalist id="liste-etablissements"></datalist>
           </label>
-          <div class="form__row">
-            <label>Du
-              <input type="date" name="date_debut" required>
-            </label>
-            <label>Au
-              <input type="date" name="date_fin" required>
-            </label>
-          </div>
           <fieldset>
-            <legend>Jours concernés</legend>
+            <legend>Quels jours ?</legend>
+              <div class="raccourcis" data-raccourcis="jours">
+                <button type="button" data-jours="1,2,3,4,5">Lundi au vendredi</button>
+                <button type="button" data-jours="6,7">Week-end</button>
+                <button type="button" data-jours="1,2,3,4,5,6,7">Tous les jours</button>
+              </div>
             <div class="jours">
-              <label class="jour"><input type="checkbox" name="jours" value="1" checked><span>Lun</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="2" checked><span>Mar</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="3" checked><span>Mer</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="4" checked><span>Jeu</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="5" checked><span>Ven</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="6"><span>Sam</span></label>
-              <label class="jour"><input type="checkbox" name="jours" value="7"><span>Dim</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="1" checked><span>Lun</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="2" checked><span>Mar</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="3" checked><span>Mer</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="4" checked><span>Jeu</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="5" checked><span>Ven</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="6"><span>Sam</span></label>
+                <label class="jour"><input type="checkbox" name="jours" value="7"><span>Dim</span></label>
             </div>
           </fieldset>
-          <div class="form__row">
-            <label>Heure d'arrivée sur place
-              <input type="time" name="heure_arrivee" required>
-            </label>
-            <label>Heure de départ du retour
-              <input type="time" name="heure_retour" required>
-            </label>
-          </div>
-          <p class="aide">L'heure de retour sert à vous faire trouver par ceux qui finissent en même temps que vous. Horaires différents selon les jours ? Publiez un trajet par horaire : le bouton « Dupliquer » de « Mes trajets » vous évite de tout ressaisir.</p>
+          <fieldset>
+            <legend>Vos horaires</legend>
+              <div class="raccourcis" data-raccourcis="horaires">
+                <button type="button" data-debut="06:45" data-fin="14:15">Matin</button>
+                <button type="button" data-debut="13:45" data-fin="21:15">Après-midi</button>
+                <button type="button" data-debut="08:00" data-fin="16:00">Journée</button>
+                <button type="button" data-debut="21:00" data-fin="07:00">Nuit</button>
+              </div>
+            <div class="form__row form__row--3">
+              <label>Je pars de chez moi à
+                <input type="time" name="heure_depart" required>
+              </label>
+              <label>J'arrive sur place à
+                <input type="time" name="heure_arrivee" required>
+              </label>
+              <label>Je repars à
+                <input type="time" name="heure_retour" required>
+              </label>
+            </div>
+            <p class="aide">L'heure de départ permet à vos passagers de savoir quand être prêts. Horaires différents selon les jours ? Publiez un trajet par horaire : le bouton « Dupliquer » de « Mes trajets » vous évite de tout ressaisir.</p>
+          </fieldset>
+          <fieldset>
+            <legend>Pendant combien de temps ?</legend>
+              <div class="raccourcis" data-raccourcis="duree">
+                <button type="button" data-duree="7">Cette semaine</button>
+                <button type="button" data-duree="28">4 semaines</button>
+                <button type="button" data-duree="70">10 semaines</button>
+                <button type="button" data-duree="dates">Choisir les dates</button>
+              </div>
+            <div class="form__row" id="t-dates" hidden>
+              <label>Du
+                <input type="date" name="date_debut" required>
+              </label>
+              <label>Au
+                <input type="date" name="date_fin" required>
+              </label>
+            </div>
+          </fieldset>
           <div class="form__row">
             <label>Places proposées
               <input type="number" name="places" min="1" max="8" value="2" required>

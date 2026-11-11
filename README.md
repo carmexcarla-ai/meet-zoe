@@ -174,6 +174,13 @@ aux horaires. Chaque résultat indique ce qui convient : aller, retour, nombre
 de jours couverts. Les postes de nuit (retour après minuit) sont gérés. Les
 distances sont calculées à vol d'oiseau entre les centres des communes.
 
+**Formulaires.** La recherche et la publication d'un trajet posent des
+questions simples, avec des raccourcis : jours (lundi au vendredi, week-end,
+tous les jours), horaires (matin, après-midi, journée, nuit) et durée (cette
+semaine, 4 semaines, 10 semaines, ou des dates au choix). Un conducteur indique
+aussi son heure de départ, affichée aux passagers. La dernière recherche est
+mémorisée sur l'appareil.
+
 **Recherches enregistrées.** Quand rien ne convient, le membre enregistre sa
 recherche (10 au maximum). Il est prévenu dans son espace dès qu'un trajet
 compatible est publié. Les conducteurs voient, sans aucun nom, la liste des
