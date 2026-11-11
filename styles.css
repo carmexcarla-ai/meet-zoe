@@ -804,3 +804,16 @@ h1 .accent { color: var(--violet); }
 }
 .demo__form .raccourcis { gap: 6px; }
 .demo__form .raccourcis button { padding: 8px 10px; font-size: .84rem; }
+
+/* =========================================================
+   Raccourcis bien visibles une fois choisis, avis dans le profil
+   ========================================================= */
+.raccourcis button[aria-pressed="true"] { background: var(--violet); border-color: var(--violet); color: #fff; }
+.raccourcis button[aria-pressed="true"]::before { content: "✓ "; }
+.sous-titre { font: 700 .98rem var(--corps); color: var(--nuit); margin: 6px 0 -4px; }
+.sous-titre small { font-weight: 400; color: var(--texte-doux); }
+.carte-form .sous-titre + .photo-profil { margin-bottom: 8px; }
+.avis-resume { font-weight: 600; color: var(--nuit); }
+.avis-resume .note-etoiles { font-size: 1.15rem; }
+.etoiles-vides { color: var(--bord); font-size: .92rem; margin-right: 6px; }
+#mes-avis .fiche__avis { margin-top: 10px; }

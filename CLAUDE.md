@@ -39,6 +39,13 @@ claire (« on peut pas faire mieux ? », « fais ce qui est mieux », etc.).
 - Les règles d'accès se font dans la base (RLS et fonctions), jamais
   seulement dans le navigateur.
 
+## À chaque publication
+
+- Augmenter d'une unité le numéro de version `?v=…` placé après les fichiers
+  CSS et JavaScript dans toutes les pages HTML. Sans cela, le navigateur des
+  visiteurs peut garder l'ancienne version des scripts avec la nouvelle page,
+  et des boutons cessent de fonctionner.
+
 ## Avant de dire que c'est fini
 
 - Tester le parcours complet sur une copie locale de Supabase, y compris les

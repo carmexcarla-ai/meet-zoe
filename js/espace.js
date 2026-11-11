@@ -794,6 +794,7 @@
 
   async function chargerProfil() {
     afficherPhoto();
+    afficherMesAvis();
     for (const champ of ['prenom', 'nom', 'ville', 'telephone', 'etablissement_declare', 'vehicule', 'bio']) {
       formProfil[champ].value = moi[champ] || '';
     }
@@ -873,7 +874,7 @@
       ${f.bio ? html`<p class="citation">« ${f.bio} »</p>` : ''}
       ${f.avis.length ? html`<h4>Avis des passagers</h4>
         <ul class="fiche__avis">${f.avis.map((a) => html`<li>
-          <span class="note-etoiles">${'★'.repeat(a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
+          <span class="note-etoiles">${'★'.repeat(a.note)}</span><span class="etoiles-vides">${'★'.repeat(5 - a.note)}</span> <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
           ${a.commentaire ? html`<p>${a.commentaire}</p>` : ''}</li>`)}</ul>` : ''}
       ${f.id === moi.id ? '' : html`<button class="lien lien--danger" type="button" data-signaler="${f.id}">Signaler ce membre</button>`}`;
     if (!fiche.open) fiche.showModal();
@@ -893,6 +894,26 @@
     });
   });
   $('#voir-ma-fiche').addEventListener('click', () => ouvrirFiche(moi.id).catch(Zoe.erreur));
+
+  /* ---------- Les avis reçus, affichés dans le profil ---------- */
+  async function afficherMesAvis() {
+    const zone = $('#mes-avis');
+    try {
+      const f = await req(sb.rpc('fiche_membre', { p_membre: moi.id }));
+      if (!f || !f.nb_avis) {
+        zone.innerHTML = html`<p class="aide">Vous n'avez pas encore reçu d'avis. Vos passagers peuvent vous noter et laisser un commentaire après un covoiturage accepté.</p>`;
+        return;
+      }
+      zone.innerHTML = html`
+        <p class="avis-resume"><span class="note-etoiles">★ ${String(f.note_moyenne).replace('.', ',')}</span>
+          sur 5 · ${f.nb_avis} avis</p>
+        <ul class="fiche__avis">${f.avis.map((a) => html`<li>
+          <span class="note-etoiles">${'★'.repeat(a.note)}</span><span class="etoiles-vides">${'★'.repeat(5 - a.note)}</span>
+          <small>${a.auteur} · ${Zoe.date(a.created_at.slice(0, 10))}</small>
+          ${a.commentaire ? html`<p>${a.commentaire}</p>` : html`<p class="aide">Note sans commentaire.</p>`}</li>`)}</ul>
+        ${f.nb_avis > f.avis.length ? html`<p class="aide">Les ${f.avis.length} avis les plus récents sont affichés.</p>` : ''}`;
+    } catch (e) { zone.innerHTML = html`<p class="aide">Les avis n'ont pas pu être chargés.</p>`; }
+  }
 
   /* ---------- Photo de profil ---------- */
   async function afficherPhoto() {

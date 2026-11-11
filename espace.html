@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=12">
 </head>
 <body class="page-app">
   <header class="header">
@@ -341,7 +341,8 @@
 
           <div class="pile">
             <div class="carte-form">
-              <h2>Ma photo <small>(facultative)</small></h2>
+              <h2>Ma fiche</h2>
+              <h3 class="sous-titre">Ma photo <small>(facultative)</small></h3>
               <div class="photo-profil">
                 <span id="photo-apercu"></span>
                 <div class="pile">
@@ -354,6 +355,8 @@
                   </div>
                 </div>
               </div>
+              <h3 class="sous-titre">Les avis que j'ai reçus</h3>
+              <div id="mes-avis"><p class="aide">Chargement…</p></div>
               <button class="lien" type="button" id="voir-ma-fiche">Voir ma fiche telle que les autres la voient</button>
             </div>
             <div class="carte-form">
@@ -396,9 +399,9 @@
     </form>
   </dialog>
 
-  <script src="vendor/supabase.js"></script>
-  <script src="config.js"></script>
-  <script src="js/commun.js"></script>
-  <script src="js/espace.js"></script>
+  <script src="vendor/supabase.js?v=12"></script>
+  <script src="config.js?v=12"></script>
+  <script src="js/commun.js?v=12"></script>
+  <script src="js/espace.js?v=12"></script>
 </body>
 </html>
