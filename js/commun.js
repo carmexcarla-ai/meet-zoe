@@ -217,6 +217,8 @@ const Zoe = (() => {
             li.append(b);
             return li;
           }));
+          // La liste s'ouvre juste sous la case, même s'il y a un texte d'aide en dessous.
+          liste.style.top = `${input.offsetTop + input.offsetHeight}px`;
           liste.hidden = lieux.length === 0;
         } catch {
           fermer();
