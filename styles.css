@@ -819,3 +819,9 @@ h1 .accent { color: var(--violet); }
 #mes-avis .fiche__avis { margin-top: 10px; }
 .fiche h4 small { font-weight: 500; color: var(--texte-doux); }
 .fiche__vide { background: var(--blanc); border: 1px dashed var(--bord); border-radius: 14px; padding: 14px; }
+
+/* =========================================================
+   Propositions d'adresses
+   ========================================================= */
+.suggestions button { display: grid; gap: 1px; min-height: 44px; }
+.suggestions button small { color: var(--texte-doux); font-size: .78rem; font-weight: 400; }

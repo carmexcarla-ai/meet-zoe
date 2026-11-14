@@ -196,8 +196,14 @@ et les statuts ne peuvent être modifiés que par l'administration.
 **Abonnements.** L'administration fixe la formule, le quota, le statut et la
 date de fin de chaque établissement. Il n'y a pas de paiement en ligne.
 
-**Communes.** La saisie des communes utilise le service public
-`geo.api.gouv.fr` (gratuit, sans compte). Seul le nom tapé lui est envoyé.
+**Adresses.** Les cases de départ et de destination acceptent une adresse
+complète ou une commune. Les propositions viennent du service public
+d'adresses de l'IGN (`data.geopf.fr`), avec la liste des communes
+(`geo.api.gouv.fr`) en secours ; seul le texte tapé leur est envoyé.
+L'adresse exacte n'est jamais enregistrée ni affichée : on garde le nom de la
+commune et une position arrondie (1 km environ pour un trajet publié, 100 m
+pour une recherche enregistrée). Le passager peut la transmettre au conducteur
+dans son message de demande de place.
 
 ## Sécurité et vie privée
 

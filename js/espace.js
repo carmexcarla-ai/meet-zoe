@@ -182,10 +182,18 @@
   rRaccourcis.duree('28');
   rRaccourcis.synchro();
 
+  // Ce qu'on garde d'une recherche : la commune et une position arrondie
+  // (100 m environ), jamais l'adresse exacte.
+  const arrondi = (v, decimales) => Number(Number(v).toFixed(decimales));
+  function pourEnregistrer(besoin) {
+    const { depart_adresse, ...reste } = besoin;
+    return { ...reste, depart_lat: arrondi(besoin.depart_lat, 3), depart_lng: arrondi(besoin.depart_lng, 3), dest_lat: arrondi(besoin.dest_lat, 3), dest_lng: arrondi(besoin.dest_lng, 3) };
+  }
+
   // Le formulaire se souvient de la dernière recherche faite sur cet appareil.
   const CLE_MEMOIRE = `zoe.recherche.${moi.id}`;
   function memoriser(besoin) {
-    try { localStorage.setItem(CLE_MEMOIRE, JSON.stringify({ besoin, duree: rRaccourcis.dureeActuelle() })); } catch { /* stockage indisponible : sans gravité */ }
+    try { localStorage.setItem(CLE_MEMOIRE, JSON.stringify({ besoin: pourEnregistrer(besoin), duree: rRaccourcis.dureeActuelle() })); } catch { /* stockage indisponible : sans gravité */ }
   }
   function retrouver() {
     try {
@@ -208,6 +216,8 @@
     return {
       depart_ville: depart.ville, depart_lat: depart.lat, depart_lng: depart.lng,
       destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
+      // Gardées pour l'écran seulement : l'adresse exacte n'est pas enregistrée.
+      depart_adresse: depart.precis ? depart.adresse : '',
       date_debut: rDebut.value, date_fin: rFin.value, jours,
       heure_arrivee: $('#r-heure').value, heure_retour: $('#r-retour').value,
       marge_min: Number($('#r-marge').value),
@@ -217,8 +227,8 @@
   // Remet un besoin dans le formulaire. Avec une durée (7, 28, 70), les dates
   // repartent d'aujourd'hui ; sinon on affiche les dates du besoin, jamais dans le passé.
   function remplirRecherche(b, duree = 'dates') {
-    rDepart.value = b.depart_ville; rDepart.dataset.lat = b.depart_lat; rDepart.dataset.lng = b.depart_lng;
-    rDestination.value = b.destination_ville; rDestination.dataset.lat = b.dest_lat; rDestination.dataset.lng = b.dest_lng;
+    rDepart.value = b.depart_ville; rDepart.dataset.lat = b.depart_lat; rDepart.dataset.lng = b.depart_lng; rDepart.dataset.ville = b.depart_ville; rDepart.dataset.precis = '';
+    rDestination.value = b.destination_ville; rDestination.dataset.lat = b.dest_lat; rDestination.dataset.lng = b.dest_lng; rDestination.dataset.ville = b.destination_ville; rDestination.dataset.precis = '';
     $$('[name=rjours]').forEach((c) => { c.checked = b.jours.includes(Number(c.value)); });
     $('#r-heure').value = Zoe.heure(b.heure_arrivee);
     $('#r-retour').value = Zoe.heure(b.heure_retour);
@@ -392,7 +402,7 @@
     if (bouton.dataset.action === 'enregistrer') {
       occupe(bouton, async () => {
         if (besoins.length >= 10) throw new Error('Vous avez déjà 10 recherches enregistrées. Supprimez-en une.');
-        await req(sb.from('besoins').insert({ membre_id: moi.id, ...derniereRecherche }));
+        await req(sb.from('besoins').insert({ membre_id: moi.id, ...pourEnregistrer(derniereRecherche) }));
         toast('Recherche enregistrée. Vous serez prévenu(e) ici des nouveaux trajets.');
         await chargerBesoins();
       });
@@ -405,6 +415,11 @@
     formulaire.message.required = question;
     $('[data-libelle]', formulaire).textContent = question ? 'Votre question au conducteur' : 'Message au conducteur (facultatif)';
     $('[type=submit]', formulaire).textContent = question ? 'Envoyer mon message' : 'Envoyer ma demande';
+    // L'adresse exacte n'est transmise qu'à ce conducteur, et seulement si le passager laisse la phrase.
+    const adresse = derniereRecherche && derniereRecherche.depart_adresse;
+    if (!question && adresse && !formulaire.message.value) {
+      formulaire.message.value = `Bonjour, vous pouvez passer me prendre ici : ${adresse}. Si ce n'est pas sur votre route, dites-moi où vous retrouver.`;
+    }
     formulaire.hidden = false;
     formulaire.message.focus();
   });
@@ -507,7 +522,7 @@
 
       await req(sb.from('trajets').insert({
         conducteur_id: moi.id,
-        depart_ville: depart.ville, depart_lat: depart.lat, depart_lng: depart.lng,
+        depart_ville: depart.ville, depart_lat: arrondi(depart.lat, 2), depart_lng: arrondi(depart.lng, 2),
         destination_nom: formTrajet.destination_nom.value.trim(),
         destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
         date_debut: formTrajet.date_debut.value,
@@ -524,8 +539,7 @@
       formTrajet.reset();
       tRaccourcis.duree('28');
       tRaccourcis.synchro();
-      delete tDepart.dataset.lat;
-      delete tDestination.dataset.lat;
+      for (const champ of [tDepart, tDestination]) { champ.value = ''; delete champ.dataset.lat; delete champ.dataset.lng; }
       montrer('trajets');
     });
   });
@@ -588,8 +602,8 @@
     if (action === 'dupliquer') {
       // Reprend le trajet dans le formulaire : il ne reste qu'à changer les jours ou les heures.
       const t = $('#mes-trajets')._trajets[idTrajet];
-      tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng;
-      tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng;
+      tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng; tDepart.dataset.ville = t.depart_ville;
+      tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng; tDestination.dataset.ville = t.destination_ville;
       formTrajet.destination_nom.value = t.destination_nom;
       tRaccourcis.duree('dates');
       formTrajet.date_debut.value = t.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : t.date_debut;

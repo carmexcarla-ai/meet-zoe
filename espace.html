@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr https://data.geopf.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Mon espace — Meet Zoe</title>
   <link rel="icon" type="image/svg+xml" href="images/icone.svg">
@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=13">
+  <link rel="stylesheet" href="styles.css?v=14">
 </head>
 <body class="page-app">
   <header class="header">
@@ -99,10 +99,11 @@
         <div class="demo">
           <form class="demo__form" id="form-recherche">
             <label>D'où partez-vous ?
-              <input type="text" id="r-depart" placeholder="Votre commune" required>
+              <input type="text" id="r-depart" placeholder="Votre adresse ou votre commune" required>
+              <small>Ex. 44 rue Joséphine, Évreux. Votre adresse exacte n'est jamais affichée aux autres membres.</small>
             </label>
             <label>Où allez-vous ?
-              <input type="text" id="r-destination" placeholder="Commune de l'hôpital, de l'EHPAD ou du stage" required>
+              <input type="text" id="r-destination" placeholder="Adresse ou commune de l'établissement" required>
             </label>
             <fieldset>
               <legend>Quels jours ?</legend>
@@ -208,10 +209,11 @@
         <form class="carte-form" id="form-trajet" hidden>
           <div class="form__row">
             <label>D'où partez-vous ?
-              <input type="text" id="t-depart" placeholder="Votre commune" required>
+              <input type="text" id="t-depart" placeholder="Votre adresse ou votre commune" required>
+              <small>Les autres membres ne voient que le nom de votre commune.</small>
             </label>
             <label>Où allez-vous ?
-              <input type="text" id="t-destination" placeholder="Commune de l'établissement" required>
+              <input type="text" id="t-destination" placeholder="Adresse ou commune de l'établissement" required>
             </label>
           </div>
           <label>Nom de l'établissement
@@ -399,9 +401,9 @@
     </form>
   </dialog>
 
-  <script src="vendor/supabase.js?v=13"></script>
-  <script src="config.js?v=13"></script>
-  <script src="js/commun.js?v=13"></script>
-  <script src="js/espace.js?v=13"></script>
+  <script src="vendor/supabase.js?v=14"></script>
+  <script src="config.js?v=14"></script>
+  <script src="js/commun.js?v=14"></script>
+  <script src="js/espace.js?v=14"></script>
 </body>
 </html>
