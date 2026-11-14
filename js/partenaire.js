@@ -47,6 +47,7 @@
           <td>${c.expire_le ? Zoe.date(c.expire_le) : 'Sans limite'}</td>
           <td><span class="badge ${c.actif ? 'badge--acceptee' : 'badge--annulee'}">${c.actif ? 'Actif' : 'Désactivé'}</span></td>
           <td class="tableau__actions">
+            <button class="lien" type="button" data-action="partager">Lien et QR code</button>
             <button class="lien" type="button" data-action="copier">Copier</button>
             <button class="lien" type="button" data-action="basculer">${c.actif ? 'Désactiver' : 'Réactiver'}</button>
             <button class="lien lien--danger" type="button" data-action="supprimer">Supprimer</button>
@@ -75,6 +76,7 @@
     if (!bouton) return;
     const ligne = bouton.closest('tr');
     const action = bouton.dataset.action;
+    if (action === 'partager') { Zoe.partagerCode(ligne.querySelector('code').textContent, $('#etab-nom').textContent); return; }
     if (action === 'copier') {
       const code = ligne.querySelector('code').textContent;
       navigator.clipboard.writeText(code).then(() => toast('Code copié.'), () => toast(code));

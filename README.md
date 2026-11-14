@@ -122,6 +122,8 @@ limité à quelques e-mails par heure.
 | `supabase/schema.sql`   | Base de données : tables, règles de sécurité, fonctions     |
 | `supabase/emails/confirmation.html` | Modèle de l'e-mail de code de confirmation |
 | `vendor/supabase.js`    | Bibliothèque officielle Supabase (ne pas modifier)          |
+| `vendor/qrcode.js`      | Bibliothèque de QR codes, licence MIT (ne pas modifier)     |
+| `affiche.html`, `js/affiche.js` | Affiche A4 à imprimer pour un code d'accès          |
 
 ## Fonctionnement
 
@@ -173,6 +175,22 @@ s'il roule au moins un des jours demandés, et si son aller ou son retour colle
 aux horaires. Chaque résultat indique ce qui convient : aller, retour, nombre
 de jours couverts. Les postes de nuit (retour après minuit) sont gérés. Les
 distances sont calculées à vol d'oiseau entre les centres des communes.
+
+**Liens d'inscription et QR codes.** Chaque code d'accès a un lien et un QR
+code (administration : **Établissements** > **Codes et QR codes** ; espace
+partenaire : **Lien et QR code**). Une personne qui ouvre le lien ou scanne le
+QR code arrive sur l'inscription, et son compte est validé automatiquement,
+sans taper le code. Une affiche A4 prête à imprimer est proposée
+(`affiche.html`). L'adresse utilisée dans les liens se règle dans `config.js`
+(`site`).
+
+**Inviter un collègue.** Dans le profil, chaque invitation disponible peut être
+envoyée par WhatsApp ou copiée comme lien ; le lien valide le compte du
+collègue automatiquement.
+
+**Tableau de bord.** L'administration s'ouvre sur les chiffres clés (membres,
+conducteurs, trajets, covoiturages, recherches enregistrées), l'évolution sur
+huit semaines, les trajets recherchés sans conducteur et les trajets proposés.
 
 **Formulaires.** La recherche et la publication d'un trajet posent des
 questions simples, avec des raccourcis : jours (lundi au vendredi, week-end,

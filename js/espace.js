@@ -39,6 +39,15 @@
       etat.textContent = 'Votre justificatif a bien été reçu. Il est en cours d\'examen : vous aurez accès à la plateforme dès sa validation.';
     }
 
+    // Code ou invitation retenu depuis un lien ou un QR code : on l'applique tout seul.
+    let acces = null;
+    try { acces = JSON.parse(localStorage.getItem('zoe.acces') || 'null'); localStorage.removeItem('zoe.acces'); } catch { /* sans gravité */ }
+    if (acces && moi.statut !== 'suspendu') {
+      const formulaire = acces.type === 'code' ? $('#form-code') : $('#form-invitation');
+      formulaire.code.value = acces.code;
+      setTimeout(() => formulaire.requestSubmit(), 0);
+    }
+
     $('#form-code').addEventListener('submit', (e) => {
       e.preventDefault();
       occupe(e.submitter, async () => {
@@ -818,8 +827,12 @@
     try {
       const invitations = await req(sb.from('invitations').select('*').eq('cree_par', moi.id).order('created_at'));
       $('#invitations').innerHTML = invitations.length
-        ? html`${invitations.map((i) => html`<li><code>${i.code}</code>
-            <span class="badge ${i.utilise_par ? 'badge--acceptee' : 'badge--demandee'}">${i.utilise_par ? 'Utilisée' : 'Disponible'}</span></li>`)}`
+        ? html`${invitations.map((i) => html`<li data-invitation="${i.code}"><code>${i.code}</code>
+            <span class="badge ${i.utilise_par ? 'badge--acceptee' : 'badge--demandee'}">${i.utilise_par ? 'Utilisée' : 'Disponible'}</span>
+            ${i.utilise_par ? '' : html`<span class="invitation__actions">
+              <a class="btn btn--green btn--sm" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(messageInvitation(i.code))}">Envoyer par WhatsApp</a>
+              <button class="lien" type="button" data-action="copier-invitation">Copier le lien</button>
+            </span>`}</li>`)}`
         : html`<li class="aide">Aucune invitation créée.</li>`;
       $('#creer-invitation').disabled = invitations.length >= 5;
     } catch (e) { Zoe.erreur(e); }
@@ -975,6 +988,13 @@
     await afficherPhoto();
     toast('Photo retirée.');
   }));
+
+  // Message tout prêt pour inviter un collègue : le lien valide son compte automatiquement.
+  const messageInvitation = (code) => `Je t'invite sur Meet Zoe, le covoiturage réservé aux étudiants en santé et aux soignants. Crée ton compte avec ce lien, ton accès sera validé tout de suite : ${Zoe.lienAcces('invitation', code)}`;
+  $('#invitations').addEventListener('click', (e) => {
+    const bouton = e.target.closest('[data-action="copier-invitation"]');
+    if (bouton) Zoe.copier(Zoe.lienAcces('invitation', bouton.closest('[data-invitation]').dataset.invitation), 'Lien d\'invitation copié.');
+  });
 
   $('#creer-invitation').addEventListener('click', (e) => occupe(e.currentTarget, async () => {
     const code = await req(sb.rpc('creer_invitation'));

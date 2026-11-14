@@ -5,6 +5,25 @@
   const { sb, $, toast, occupe, req } = Zoe;
   const montrer = Zoe.onglets($('#onglets'));
 
+  // Arrivée par un lien ou un QR code : on retient le code d'accès (ou l'invitation)
+  // sur cet appareil. Il sera appliqué tout seul après la création du compte.
+  const parametres = new URLSearchParams(location.search);
+  for (const type of ['code', 'invitation']) {
+    const valeur = (parametres.get(type) || '').trim().toUpperCase().slice(0, 40);
+    if (/^[A-Z0-9-]{6,40}$/.test(valeur)) {
+      try { localStorage.setItem('zoe.acces', JSON.stringify({ type, code: valeur })); } catch { /* sans gravité */ }
+    }
+  }
+  try {
+    const acces = JSON.parse(localStorage.getItem('zoe.acces') || 'null');
+    if (acces) {
+      $('#acces-retenu').hidden = false;
+      $('#acces-retenu').textContent = acces.type === 'code'
+        ? `Votre code d'accès ${acces.code} est retenu : votre compte sera validé automatiquement après l'inscription.`
+        : `Votre invitation ${acces.code} est retenue : votre compte sera validé automatiquement après l'inscription.`;
+    }
+  } catch { /* sans gravité */ }
+
   // Arrivée depuis « Je cherche un trajet » ou « Je propose un trajet » :
   // le choix passager ou conducteur est déjà coché.
   const choix = new URLSearchParams(location.search).get('je');

@@ -52,3 +52,25 @@ claire (« on peut pas faire mieux ? », « fais ce qui est mieux », etc.).
   tentatives de contournement.
 - Vérifier l'affichage à 360, 390, 768 et 1280 px.
 - Dire ce qui n'a pas pu être testé.
+
+## En attente (décidé avec le propriétaire, à reprendre quand il le demande)
+
+- **Textes légaux** : mentions légales, conditions d'utilisation et politique
+  de confidentialité. Plan déjà présenté. Il manque cinq informations à lui
+  redemander : qui édite le site (particulier, entreprise ou association, avec
+  SIRET le cas échéant), le nom du responsable de la publication, une adresse
+  postale à afficher, une adresse e-mail de contact qui fonctionne, et la
+  région du projet Supabase. Proposer aussi d'héberger les polices sur le site
+  plutôt que chez Google. Ces textes doivent être relus par un juriste, et il
+  ne faut pas inviter de vrais utilisateurs avant leur mise en ligne.
+- **Boîte `contact@meetzoe.fr`** : n'existe pas encore.
+- **Réglages de sécurité du propriétaire** : double authentification sur
+  Supabase, GitHub, Render, OVH et Brevo ; sauvegardes de la base.
+- **E-mail « mot de passe oublié »** : encore le modèle anglais de Supabase.
+- **Liste d'attente par ville** : repoussée, le lancement se fait à Évreux
+  seulement pour le moment.
+
+## Orthographe
+
+- Le propriétaire a signalé des fautes dans la conversation : relire chaque
+  message avant de l'envoyer.

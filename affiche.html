@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr https://data.geopf.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Affiche Meet Zoe</title>
+  <link rel="icon" type="image/svg+xml" href="images/icone.svg">
+  <link rel="apple-touch-icon" href="images/icone-180.png">
+  <meta name="theme-color" content="#5425B8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=15">
+</head>
+<body class="page-affiche">
+  <div class="affiche__outils">
+    <button class="btn btn--primary" type="button" id="imprimer">Imprimer ou enregistrer en PDF</button>
+    <p class="aide">Format A4. Dans la fenêtre d'impression, choisissez « Enregistrer au format PDF » pour garder le fichier.</p>
+  </div>
+
+  <main class="affiche">
+    <p class="affiche__logo">
+      <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="12" fill="#5425B8"/><path d="M11 27c5-1 6-13 9-13s4 12 9 13" fill="none" stroke="#FAF9FD" stroke-width="2.6" stroke-linecap="round"/><circle cx="11" cy="27" r="3" fill="#24A68A"/><circle cx="29" cy="27" r="3" fill="#EEE7FF"/></svg>
+      <span class="logo__text">meet <b>zoe</b></span>
+    </p>
+    <h1>Le covoiturage pour ceux qui <span class="accent">prennent soin des autres.</span></h1>
+    <p class="affiche__intro">Pas de voiture pour aller en stage ou au travail ? Des places libres dans la vôtre ? Meet Zoe met en relation les étudiants en santé et les soignants qui font le même trajet.</p>
+
+    <div class="affiche__bloc">
+      <div class="affiche__qr" id="qr"></div>
+      <div>
+        <p class="affiche__scan">Scannez pour créer votre compte</p>
+        <ol>
+          <li>Scannez le QR code avec votre téléphone.</li>
+          <li>Créez votre compte : votre accès est validé tout de suite.</li>
+          <li>Cherchez un trajet, ou proposez le vôtre.</li>
+        </ol>
+        <p class="affiche__code">Ou sur <b>meetzoe.fr</b>, avec le code <b id="code"></b></p>
+      </div>
+    </div>
+
+    <ul class="affiche__points">
+      <li>Réservé aux étudiants en santé et aux soignants, vérifiés un par un</li>
+      <li>Horaires de stage, de garde, de nuit et de week-end</li>
+      <li>Gratuit pendant le lancement, à Évreux et alentours</li>
+    </ul>
+    <p class="affiche__pied"><span id="nom"></span><span>Ensemble, allons plus loin.</span></p>
+  </main>
+
+  <script src="vendor/qrcode.js?v=15"></script>
+  <script src="config.js?v=15"></script>
+  <script src="js/affiche.js?v=15"></script>
+</body>
+</html>

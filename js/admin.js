@@ -161,7 +161,7 @@
           <td><span class="badge badge--abo-${e.abonnement_statut}">${Zoe.ABONNEMENTS[e.abonnement_statut]}</span>
             ${e.abonnement_fin ? html`<br><small>jusqu'au ${Zoe.date(e.abonnement_fin)}</small>` : ''}</td>
           <td class="tableau__actions">
-            <button class="lien" type="button" data-action="code">Créer un code</button>
+            <button class="lien" type="button" data-action="code">Codes et QR codes</button>
             <button class="lien" type="button" data-action="modifier">Modifier</button>
             <button class="lien lien--danger" type="button" data-action="supprimer">Supprimer</button>
           </td>
@@ -220,16 +220,54 @@
     }
     if (action === 'supprimer' && !confirm(`Supprimer ${etab.nom} et ses codes d'accès ? Les membres déjà vérifiés conservent leur compte.`)) return;
 
+    if (action === 'code') { ouvrirCodes(etab).catch(Zoe.erreur); return; }
+
     occupe(bouton, async () => {
-      if (action === 'code') {
-        const code = await req(sb.rpc('creer_code', { p_libelle: 'Créé par l\'administration', p_max: null, p_expire: null, p_etablissement: etab.id }));
-        prompt(`Code d'accès pour ${etab.nom} (copiez-le) :`, code);
-      } else {
+      {
         await req(sb.from('etablissements').delete().eq('id', etab.id));
         toast('Établissement supprimé.');
         await chargerEtablissements();
       }
     });
+  });
+
+  /* Codes d'accès d'un établissement : liste, création, lien et QR code */
+  const fenetreCodes = $('#codes-etab');
+  let etabCodes = null;
+  $('#codes-fermer').addEventListener('click', () => fenetreCodes.close());
+
+  async function listerCodes() {
+    const codes = await req(sb.from('codes_acces').select('*').eq('etablissement_id', etabCodes.id).order('created_at', { ascending: false }));
+    $('#codes-liste').innerHTML = codes.length
+      ? html`${codes.map((c) => html`
+        <li data-code="${c.code}">
+          <div><code>${c.code}</code><small>${c.libelle || 'Sans nom'} · ${c.utilisations} inscription${c.utilisations > 1 ? 's' : ''}${c.actif ? '' : ' · désactivé'}</small></div>
+          <button class="btn btn--ghost btn--sm" type="button" data-action="partager">Lien et QR code</button>
+        </li>`)}`
+      : html`<li class="aide">Aucun code pour cet établissement. Créez le premier ci-dessus.</li>`;
+  }
+
+  async function ouvrirCodes(etab) {
+    etabCodes = etab;
+    $('#codes-titre').textContent = `Codes d'accès · ${etab.nom}`;
+    $('#codes-liste').innerHTML = '';
+    fenetreCodes.showModal();
+    await listerCodes();
+  }
+
+  $('#codes-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    occupe(e.submitter, async () => {
+      const code = await req(sb.rpc('creer_code', { p_libelle: e.target.libelle.value, p_max: null, p_expire: null, p_etablissement: etabCodes.id }));
+      e.target.reset();
+      await listerCodes();
+      Zoe.partagerCode(code, etabCodes.nom);
+    });
+  });
+
+  $('#codes-liste').addEventListener('click', (e) => {
+    const bouton = e.target.closest('[data-action="partager"]');
+    if (bouton) Zoe.partagerCode(bouton.closest('[data-code]').dataset.code, etabCodes.nom);
   });
 
   /* ---------- 3. Demandes de contact ---------- */
@@ -351,12 +389,74 @@
       : html`<tr><td colspan="4" class="aide">Aucune action enregistrée.</td></tr>`;
   }
 
+  /* ---------- 6. Tableau de bord ---------- */
+  // Lundi de la semaine d'une date, au format AAAA-MM-JJ.
+  const lundiDe = (date) => {
+    const d = new Date(date);
+    d.setHours(12, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    return d.toLocaleDateString('fr-CA');
+  };
+
+  async function chargerBord() {
+    const [profils, trajets, reservations, demandes] = await Promise.all([
+      req(sb.from('profils').select('statut, role, conducteur_statut, created_at').limit(5000)),
+      req(sb.from('trajets').select('depart_ville, destination_ville, destination_nom, actif, date_fin, places, created_at').limit(5000)),
+      req(sb.from('reservations').select('statut, created_at').limit(5000)),
+      req(sb.rpc('besoins_ouverts')),
+    ]);
+    const membres = profils.filter((p) => p.role === 'membre');
+    const actifs = trajets.filter((t) => t.actif && t.date_fin >= Zoe.aujourdhui());
+    const tuile = (valeur, libelle, note) => html`<div class="chiffre"><span>${valeur}</span><p>${libelle}</p>${note ? html`<small>${note}</small>` : ''}</div>`;
+    const enAttente = membres.filter((p) => p.statut === 'en_attente').length;
+    const conducteursAValider = profils.filter((p) => p.conducteur_statut === 'en_attente').length;
+
+    $('#bord-chiffres').innerHTML = html`
+      ${tuile(membres.filter((p) => p.statut === 'verifie').length, 'Membres vérifiés', enAttente ? `${enAttente} en attente` : '')}
+      ${tuile(profils.filter((p) => p.conducteur_statut === 'valide').length, 'Conducteurs validés', conducteursAValider ? `${conducteursAValider} à valider` : '')}
+      ${tuile(actifs.length, 'Trajets proposés', `${actifs.reduce((s, t) => s + t.places, 0)} places`)}
+      ${tuile(reservations.filter((r) => r.statut === 'acceptee').length, 'Covoiturages acceptés', '')}
+      ${tuile(reservations.filter((r) => r.statut === 'demandee').length, 'Demandes en attente', '')}
+      ${tuile(demandes.length, 'Recherches enregistrées', demandes.length >= 30 ? '30 ou plus' : '')}`;
+
+    // Huit dernières semaines, la plus récente en haut.
+    const semaines = [];
+    for (let i = 0; i < 8; i += 1) { const d = new Date(); d.setDate(d.getDate() - 7 * i); semaines.push(lundiDe(d)); }
+    const compter = (liste, filtre = () => true) => {
+      const total = {};
+      liste.filter(filtre).forEach((x) => { const s = lundiDe(x.created_at); total[s] = (total[s] || 0) + 1; });
+      return total;
+    };
+    const parSemaine = {
+      inscriptions: compter(membres), trajets: compter(trajets),
+      demandes: compter(reservations, (r) => r.statut !== 'contact'), acceptes: compter(reservations, (r) => r.statut === 'acceptee'),
+    };
+    $('#bord-semaines').innerHTML = html`${semaines.map((s) => html`<tr>
+      <td>${Zoe.date(s)}</td>
+      <td>${parSemaine.inscriptions[s] || 0}</td><td>${parSemaine.trajets[s] || 0}</td>
+      <td>${parSemaine.demandes[s] || 0}</td><td>${parSemaine.acceptes[s] || 0}</td></tr>`)}`;
+
+    // Regroupe par parcours, du plus demandé au moins demandé.
+    const regrouper = (liste) => Object.entries(liste.reduce((acc, x) => {
+      const cle = `${x.depart_ville} → ${x.destination_ville}`;
+      acc[cle] = (acc[cle] || 0) + 1;
+      return acc;
+    }, {})).sort((a, b) => b[1] - a[1]).slice(0, 12);
+    const lignes = (groupes, mot, vide) => (groupes.length
+      ? html`${groupes.map(([parcours, n]) => html`<li><b>${parcours}</b><span>${n} ${mot}${n > 1 ? 's' : ''}</span></li>`)}`
+      : html`<li class="aide">${vide}</li>`);
+    $('#bord-demandes').innerHTML = lignes(regrouper(demandes), 'recherche', 'Aucune recherche enregistrée pour le moment.');
+    $('#bord-offres').innerHTML = lignes(regrouper(actifs), 'trajet', 'Aucun trajet proposé pour le moment.');
+  }
+  $('#bord-actualiser').addEventListener('click', (e) => occupe(e.currentTarget, chargerBord));
+
   /* ---------- Démarrage ---------- */
-  const chargeurs = { membres: chargerMembres, etablissements: chargerEtablissements, contacts: chargerContacts, moderation: chargerModeration, journal: chargerJournal };
+  const chargeurs = { bord: chargerBord, membres: chargerMembres, etablissements: chargerEtablissements, contacts: chargerContacts, moderation: chargerModeration, journal: chargerJournal };
   Zoe.onglets($('#onglets'), (nom) => chargeurs[nom]().catch(Zoe.erreur));
   try {
     await chargerListeEtablissements();
     await chargerMembres();
+    await chargerBord();
     // Pastille des signalements à traiter, dès l'arrivée.
     const { count } = await sb.from('signalements').select('id', { count: 'exact', head: true }).eq('statut', 'ouvert');
     $('#pastille-moderation').hidden = !count;

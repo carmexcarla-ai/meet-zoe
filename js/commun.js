@@ -277,6 +277,54 @@ const Zoe = (() => {
     : html`<span class="avatar ${classe}">${initiales(prenom, initiale)}</span>`);
   const etoiles = (note, nb) => (nb ? html`<span class="note-etoiles" title="${nb} avis">★ ${String(note).replace('.', ',')} <small>(${nb})</small></span>` : '');
 
+  /* ---------- Liens d'inscription et QR codes ---------- */
+  const SITE = (cfg.site || location.origin).replace(/\/$/, '');
+  // Lien qui ouvre l'inscription avec le code (ou l'invitation) déjà retenu.
+  const lienAcces = (type, code) => `${SITE}/connexion.html?${type}=${encodeURIComponent(code)}#inscription`;
+  // Dessine un QR code (bibliothèque locale vendor/qrcode.js).
+  function qrSvg(texte) {
+    const qr = qrcode(0, 'M');
+    qr.addData(texte);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+  }
+  async function copier(texte, message = 'Copié.') {
+    try { await navigator.clipboard.writeText(texte); toast(message); } catch { prompt('Copiez ce texte :', texte); }
+  }
+
+  // Fenêtre « Lien et QR code » d'un code d'accès : lien à copier, QR code, affiche à imprimer.
+  function partagerCode(code, nomEtablissement) {
+    let fenetre = $('#partage');
+    if (!fenetre) {
+      fenetre = document.createElement('dialog');
+      fenetre.id = 'partage';
+      fenetre.className = 'fil partage';
+      document.body.append(fenetre);
+    }
+    const lien = lienAcces('code', code);
+    const affiche = `affiche.html?code=${encodeURIComponent(code)}&nom=${encodeURIComponent(nomEtablissement || '')}`;
+    fenetre.innerHTML = html`
+      <header>
+        <h2>Lien et QR code</h2>
+        <button class="lien" type="button" data-fermer>Fermer</button>
+      </header>
+      <div class="partage__corps">
+        <p>Code d'accès <code>${code}</code>${nomEtablissement ? ` · ${nomEtablissement}` : ''}</p>
+        <div class="partage__qr">${new Brut(qrSvg(lien))}</div>
+        <p class="aide">Une personne qui scanne ce QR code, ou qui ouvre le lien, arrive sur l'inscription. Son accès est validé automatiquement, sans avoir à taper le code.</p>
+        <label>Lien d'inscription
+          <input type="text" readonly value="${lien}">
+        </label>
+        <div class="element__actions">
+          <button class="btn btn--primary btn--sm" type="button" data-copier>Copier le lien</button>
+          <a class="btn btn--ghost btn--sm" href="${affiche}" target="_blank" rel="noopener">Ouvrir l'affiche à imprimer</a>
+        </div>
+      </div>`;
+    $('[data-fermer]', fenetre).addEventListener('click', () => fenetre.close());
+    $('[data-copier]', fenetre).addEventListener('click', () => copier(lien, 'Lien copié.'));
+    if (!fenetre.open) fenetre.showModal();
+  }
+
   const initiales = (prenom, initiale) => `${(prenom || '?')[0]}${initiale || ''}`.toUpperCase();
 
   return {
@@ -285,5 +333,6 @@ const Zoe = (() => {
     toast, erreur, messageErreur, req, occupe,
     exigerProfil, deconnexion, pageAccueil, pageNonConfiguree,
     champCommune, lireCommune, onglets, initiales, photos, avatar, etoiles,
+    SITE, lienAcces, qrSvg, copier, partagerCode,
   };
 })();

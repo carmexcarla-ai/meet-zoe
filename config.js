@@ -18,4 +18,7 @@ window.ZOE_CONFIG = {
   // Ne passez à true qu'après avoir branché un service d'envoi d'e-mails (SMTP)
   // et collé le modèle supabase/emails/confirmation.html dans Supabase.
   codeParEmail: true,
+
+  // Adresse publique du site, utilisée dans les liens d'inscription et les QR codes.
+  site: 'https://meetzoe.fr',
 };

@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=14">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body class="page-app">
   <header class="header">
@@ -38,7 +38,8 @@
   <main class="wrap app" id="contenu" hidden>
     <p class="eyebrow">Administration</p>
     <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Administration">
-      <button type="button" role="tab" data-onglet="membres" aria-selected="true">Membres</button>
+      <button type="button" role="tab" data-onglet="bord" aria-selected="true">Tableau de bord</button>
+      <button type="button" role="tab" data-onglet="membres" aria-selected="false">Membres</button>
       <button type="button" role="tab" data-onglet="etablissements" aria-selected="false">Établissements</button>
       <button type="button" role="tab" data-onglet="moderation" aria-selected="false">Modération <span class="pastille" id="pastille-moderation" hidden></span></button>
       <button type="button" role="tab" data-onglet="contacts" aria-selected="false">Demandes de contact</button>
@@ -46,7 +47,37 @@
     </nav>
 
     <!-- Membres -->
-    <section data-panneau="membres">
+    <!-- Tableau de bord -->
+    <section data-panneau="bord">
+      <div class="barre">
+        <h1>Tableau de bord</h1>
+        <button class="lien" type="button" id="bord-actualiser">Actualiser</button>
+      </div>
+      <div class="chiffres chiffres--6" id="bord-chiffres"></div>
+
+      <h2>Semaine par semaine</h2>
+      <div class="tableau-zone">
+        <table class="tableau">
+          <thead><tr><th>Semaine du</th><th>Inscriptions</th><th>Trajets publiés</th><th>Demandes de place</th><th>Covoiturages acceptés</th></tr></thead>
+          <tbody id="bord-semaines"></tbody>
+        </table>
+      </div>
+
+      <div class="deux-colonnes bord-listes">
+        <div>
+          <h2>Trajets recherchés sans conducteur</h2>
+          <p class="aide">Les recherches enregistrées par les membres. C'est la liste à montrer pour recruter des conducteurs.</p>
+          <ul class="bord-liste" id="bord-demandes"></ul>
+        </div>
+        <div>
+          <h2>Trajets proposés en ce moment</h2>
+          <p class="aide">Les trajets actifs, regroupés par parcours.</p>
+          <ul class="bord-liste" id="bord-offres"></ul>
+        </div>
+      </div>
+    </section>
+
+    <section data-panneau="membres" hidden>
       <div class="barre">
         <h1>Membres</h1>
         <label class="filtre">Afficher
@@ -159,9 +190,28 @@
     </section>
   </main>
 
-  <script src="vendor/supabase.js?v=14"></script>
-  <script src="config.js?v=14"></script>
-  <script src="js/commun.js?v=14"></script>
-  <script src="js/admin.js?v=14"></script>
+  <!-- Codes d'accès d'un établissement -->
+  <dialog class="fil partage" id="codes-etab">
+    <header>
+      <h2 id="codes-titre">Codes d'accès</h2>
+      <button class="lien" type="button" id="codes-fermer">Fermer</button>
+    </header>
+    <div class="partage__corps">
+      <p class="aide">Un code par groupe (une promotion, un service). Donnez le lien ou l'affiche à une personne de confiance, qui le diffuse.</p>
+      <form class="codes-form" id="codes-form">
+        <label>Nom du groupe
+          <input type="text" name="libelle" maxlength="80" placeholder="Ex. Promotion 2026, service de cardiologie" required>
+        </label>
+        <button class="btn btn--primary btn--sm" type="submit">Créer un code</button>
+      </form>
+      <ul class="codes-liste" id="codes-liste"></ul>
+    </div>
+  </dialog>
+
+  <script src="vendor/qrcode.js?v=15"></script>
+  <script src="vendor/supabase.js?v=15"></script>
+  <script src="config.js?v=15"></script>
+  <script src="js/commun.js?v=15"></script>
+  <script src="js/admin.js?v=15"></script>
 </body>
 </html>
