@@ -31,6 +31,18 @@
     $('#form-inscription').conducteur.value = String(choix === 'conducteur');
   }
 
+  // Bouton « Afficher / Masquer » de chaque champ mot de passe.
+  document.querySelectorAll('.mdp__voir').forEach((bouton) => {
+    const champ = document.getElementById(bouton.getAttribute('aria-controls'));
+    bouton.addEventListener('click', () => {
+      const visible = champ.type === 'password';
+      champ.type = visible ? 'text' : 'password';
+      bouton.setAttribute('aria-pressed', String(visible));
+      bouton.textContent = visible ? 'Masquer' : 'Afficher';
+      bouton.setAttribute('aria-label', visible ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
+    });
+  });
+
   // Arrivée depuis « Créer mon compte » : on affiche tout de suite le bon onglet.
   if (location.hash === '#inscription') montrer('inscription');
 
@@ -127,6 +139,14 @@
           },
         },
       }));
+      // Adresse déjà utilisée : avec la confirmation par e-mail, Supabase ne signale
+      // pas d'erreur. Il renvoie un utilisateur sans identité et n'envoie aucun e-mail.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        toast('Un compte existe déjà avec cette adresse e-mail. Connectez-vous, ou utilisez « Mot de passe oublié ».', 'err');
+        montrer('connexion');
+        $('#form-connexion').email.value = f.email.value.trim();
+        return;
+      }
       if (data.session) await entrer();
       else demanderCode(f.email.value.trim());
     });

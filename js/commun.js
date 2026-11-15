@@ -19,6 +19,9 @@ const Zoe = (() => {
     pro_non_diplome: 'Agent de soins, ASH ou personnel éducatif',
     etablissement: 'Représentant(e) d\'un établissement',
   };
+  const VERIFICATIONS = { code: 'Vérifié par un code d\'établissement', justificatif: 'Vérifié sur justificatif', invitation: 'Invité par un membre vérifié', admin: 'Vérifié par l\'équipe Meet Zoe' };
+  // Numéro attendu de la base de données (voir version_base() dans supabase/schema.sql).
+  const VERSION_BASE = 16;
   const STATUTS = { en_attente: 'En attente', verifie: 'Vérifié', refuse: 'Refusé', suspendu: 'Suspendu' };
   const RESERVATIONS = { contact: 'Discussion', demandee: 'En attente', acceptee: 'Acceptée', refusee: 'Refusée', annulee: 'Annulée' };
   const CONDUCTEUR = { non: 'Non conducteur', en_attente: 'Documents à contrôler', valide: 'Conducteur validé', refuse: 'Conducteur refusé' };
@@ -86,13 +89,32 @@ const Zoe = (() => {
     [/mime type|not supported/i, 'Format de fichier non accepté (PDF, JPG ou PNG).'],
     [/exceeded the maximum allowed size|too large/i, 'Fichier trop volumineux (5 Mo maximum).'],
     [/row-level security|permission denied/i, 'Vous n\'avez pas le droit de faire cette action.'],
+    [/should be different from the old password/i, 'Choisissez un mot de passe différent de l\'ancien.'],
+    [/for security purposes|only request this after/i, 'Patientez une minute avant de réessayer.'],
+    [/known to be weak|easy to guess/i, 'Ce mot de passe est trop facile à deviner. Choisissez-en un autre.'],
   ];
+  // Les messages écrits par le site ou par la base sont en français (ils
+  // contiennent un accent ou finissent par un point). Tout le reste est une
+  // panne technique : on affiche une phrase simple et on la note pour le suivi.
+  const ANGLAIS = /\b(the|you|your|please|should|password|is|are|not|cannot|can|must|this|that|for|with|after|error|invalid|failed|unable|only|request)\b/i;
+  const estFrancais = (t) => /[àâçéèêëîïôùûœ«»’]/i.test(t) || (/^[A-ZÉÈÀÇ][^{}<>]*[.!?]$/.test(t) && !ANGLAIS.test(t));
+  function noterPanne(texte) {
+    try {
+      if (sb) sb.rpc('signaler_erreur', { p_page: location.pathname.split('/').pop() || 'index.html', p_message: String(texte).slice(0, 500) }).then(() => {}, () => {});
+    } catch { /* sans gravité */ }
+  }
   function messageErreur(e) {
     const brut = (e && (e.message || e.error_description)) || String(e);
     const trouve = TRADUCTIONS.find(([motif]) => motif.test(brut));
-    return trouve ? trouve[1] : brut;
+    if (trouve) return trouve[1];
+    if (/jwt|session|not authenticated|invalid claim/i.test(brut)) return 'Votre session a expiré. Reconnectez-vous.';
+    if (estFrancais(brut)) return brut;
+    noterPanne(brut);
+    return 'Une erreur est survenue. Réessayez dans un instant ; si le problème continue, écrivez-nous depuis la page Contact.';
   }
   const erreur = (e) => { console.error(e); toast(messageErreur(e), 'err'); };
+  window.addEventListener('error', (ev) => noterPanne(`${ev.message} (${(ev.filename || '').split('/').pop()}:${ev.lineno})`));
+  window.addEventListener('unhandledrejection', (ev) => noterPanne(`Promesse : ${(ev.reason && ev.reason.message) || ev.reason}`));
 
   // Lance une requête Supabase et renvoie directement les données.
   async function req(promesse) {
@@ -117,15 +139,101 @@ const Zoe = (() => {
   // Renvoie le profil du membre connecté, ou redirige vers la connexion.
   async function exigerProfil() {
     if (!sb) { pageNonConfiguree(); return null; }
-    const { data: { session } } = await sb.auth.getSession();
+    const { data: { session }, error: erreurSession } = await sb.auth.getSession();
+    // Session à renouveler pendant une coupure de réseau : on ne renvoie pas vers la connexion.
+    if (!session && erreurSession && /fetch|network|load failed/i.test(`${erreurSession.name} ${erreurSession.message}`)) { pagePanne(); return null; }
     if (!session) { location.replace('connexion.html'); return null; }
     const { data: profil, error } = await sb.from('profils').select('*').eq('id', session.user.id).maybeSingle();
-    if (error || !profil) {
+    if (error) {
+      // Panne de réseau ou du service : on ne déconnecte pas, on propose de réessayer.
+      const expire = /jwt|401|not authenticated/i.test(`${error.message} ${error.code || ''}`);
+      if (expire) { await sb.auth.signOut(); location.replace('connexion.html'); return null; }
+      pagePanne();
+      return null;
+    }
+    if (!profil) {
       await sb.auth.signOut();
       location.replace('connexion.html');
       return null;
     }
     return profil;
+  }
+  function pagePanne() {
+    if ($('#panne')) return;
+    document.body.insertAdjacentHTML('afterbegin',
+      '<div class="alerte alerte--config" id="panne" role="alert"><strong>Connexion impossible pour le moment.</strong> '
+      + 'Vérifiez votre accès à Internet, puis réessayez. Vous restez connecté(e). '
+      + '<button class="btn btn--primary btn--sm" type="button">Réessayer</button></div>');
+    $('#panne button').addEventListener('click', () => location.reload());
+  }
+
+  /* ---------- Fichiers privés ----------
+     Efface tout le dossier d'un membre dans un espace de stockage, puis
+     vérifie qu'il est vraiment vide. Lève une erreur sinon. */
+  async function viderDossier(espace, dossier) {
+    const lister = async () => {
+      const { data, error } = await sb.storage.from(espace).list(String(dossier), { limit: 100 });
+      if (error) throw error;
+      return (data || []).filter((f) => f.id !== null || f.name).map((f) => `${dossier}/${f.name}`);
+    };
+    const fichiers = await lister();
+    if (!fichiers.length) return 0;
+    const { error } = await sb.storage.from(espace).remove(fichiers);
+    if (error) throw error;
+    if ((await lister()).length) throw new Error('Les fichiers n\'ont pas pu être effacés. Réessayez dans un instant.');
+    return fichiers.length;
+  }
+
+  /* ---------- Fenêtre de question ----------
+     Remplace les fenêtres du navigateur. Renvoie null si la personne annule,
+     sinon { choix, texte }.
+       options.choix : liste de propositions (facultatif)
+       options.zone  : true pour ajouter une zone de texte (options.zoneLabel, options.min)
+       options.danger: bouton rouge */
+  /*   options.max   : longueur maximale de la zone de texte
+       options.verifier : fonction ({ choix, texte }) qui renvoie un message si la réponse ne convient pas */
+  function demander({ titre, texte = '', choix = null, zone = false, zoneLabel = 'Précisions', min = 0, max = 1000, valider = 'Confirmer', danger = false, verifier = null }) {
+    return new Promise((resoudre) => {
+      const f = document.createElement('dialog');
+      f.className = 'fil question';
+      f.setAttribute('aria-labelledby', 'question-titre');
+      f.innerHTML = html`
+        <form method="dialog">
+          <header><h2 id="question-titre">${titre}</h2></header>
+          <div class="question__corps">
+            ${texte ? html`<p>${texte}</p>` : ''}
+            ${choix ? html`<label>Motif
+              <select name="choix">${choix.map((c) => html`<option>${c}</option>`)}</select></label>` : ''}
+            ${zone ? html`<label>${zoneLabel}
+              <textarea name="zone" rows="3" maxlength="${max}"></textarea></label>` : ''}
+            <p class="erreur-champ" role="alert" hidden></p>
+            <div class="element__actions">
+              <button class="btn ${danger ? 'btn--danger' : 'btn--primary'} btn--sm" type="submit" value="ok">${valider}</button>
+              <button class="btn btn--ghost btn--sm" type="button" data-annuler>Annuler</button>
+            </div>
+          </div>
+        </form>`;
+      document.body.append(f);
+      let reponse = null;
+      $('[data-annuler]', f).addEventListener('click', () => f.close());
+      $('form', f).addEventListener('submit', (e) => {
+        const saisi = zone ? $('[name=zone]', f).value.trim() : '';
+        const donnee = { choix: choix ? $('[name=choix]', f).value : null, texte: saisi };
+        const souci = zone && saisi.length < min ? `Écrivez au moins ${min} caractères.` : (verifier ? verifier(donnee) : '');
+        if (souci) {
+          e.preventDefault();
+          const m = $('.erreur-champ', f);
+          m.textContent = souci;
+          m.hidden = false;
+          return;
+        }
+        reponse = donnee;
+      });
+      f.addEventListener('close', () => { f.remove(); resoudre(reponse); });
+      f.showModal();
+      // Pour une action sans retour possible, la touche Entrée ne doit pas valider par mégarde.
+      if (danger && !choix && !zone) $('[data-annuler]', f).focus();
+    });
   }
 
   async function deconnexion() {
@@ -331,7 +439,7 @@ const Zoe = (() => {
     sb, configure, codeParEmail: Boolean(cfg.codeParEmail), CATEGORIES, STATUTS, RESERVATIONS, CONDUCTEUR, IDENTITES, TYPES_ETAB, FORMULES, ABONNEMENTS, JOURS,
     esc, html, $, $$, date, dateHeure, heure, jours, aujourdhui,
     toast, erreur, messageErreur, req, occupe,
-    exigerProfil, deconnexion, pageAccueil, pageNonConfiguree,
+    exigerProfil, deconnexion, pageAccueil, pageNonConfiguree, pagePanne, viderDossier, demander, VERIFICATIONS, VERSION_BASE,
     champCommune, lireCommune, onglets, initiales, photos, avatar, etoiles,
     SITE, lienAcces, qrSvg, copier, partagerCode,
   };

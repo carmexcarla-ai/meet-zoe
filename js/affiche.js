@@ -19,4 +19,23 @@
   document.getElementById('code').textContent = valide ? code : 'remis par votre établissement';
   document.getElementById('nom').textContent = nom;
   document.getElementById('imprimer').addEventListener('click', () => window.print());
+
+  // À l'écran, l'affiche garde ses proportions A4 mais rétrécit pour tenir dans
+  // la largeur d'un téléphone. À l'impression, ces réglages ne s'appliquent pas
+  // (voir « @media screen » dans la feuille de styles).
+  const affiche = document.querySelector('.affiche');
+  const marge = 16;
+  function ajuster() {
+    const echelle = Math.min(1, (document.documentElement.clientWidth - 2 * marge) / affiche.offsetWidth);
+    if (echelle < 1) {
+      affiche.style.setProperty('--echelle', echelle.toFixed(4));
+      affiche.style.setProperty('--affiche-gauche', `${marge}px`);
+      affiche.style.setProperty('--affiche-bas', `${Math.round(30 - affiche.offsetHeight * (1 - echelle))}px`);
+    } else {
+      ['--echelle', '--affiche-gauche', '--affiche-bas'].forEach((nom) => affiche.style.removeProperty(nom));
+    }
+  }
+  ajuster();
+  window.addEventListener('resize', ajuster);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(ajuster);
 })();

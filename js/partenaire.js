@@ -82,12 +82,23 @@
       navigator.clipboard.writeText(code).then(() => toast('Code copié.'), () => toast(code));
       return;
     }
-    if (action === 'supprimer' && !confirm('Supprimer ce code ? Les membres déjà inscrits conservent leur accès.')) return;
     occupe(bouton, async () => {
       if (action === 'basculer') {
-        await req(sb.from('codes_acces').update({ actif: ligne.dataset.actif !== 'true' }).eq('id', ligne.dataset.code));
-      } else {
+        const activer = ligne.dataset.actif !== 'true';
+        const modifies = await req(sb.from('codes_acces').update({ actif: activer }).eq('id', ligne.dataset.code).select('id'));
+        if (!modifies.length) throw new Error('Le code n\'a pas pu être modifié. Rechargez la page, puis réessayez.');
+        toast(activer ? 'Code réactivé.' : 'Code désactivé : il ne permet plus de s\'inscrire.');
+      } else if (action === 'supprimer') {
+        const accord = await Zoe.demander({
+          titre: 'Supprimer ce code ?',
+          texte: 'Les membres déjà inscrits conservent leur accès. Pour arrêter les inscriptions sans perdre le code, préférez « Désactiver ».',
+          valider: 'Supprimer', danger: true,
+        });
+        if (!accord) return;
         await req(sb.from('codes_acces').delete().eq('id', ligne.dataset.code));
+        toast('Code supprimé.');
+      } else {
+        return;
       }
       await chargerCodes();
     });

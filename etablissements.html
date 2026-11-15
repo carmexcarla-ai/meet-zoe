@@ -6,7 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr https://data.geopf.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Établissements partenaires — Meet Zoe</title>
-  <meta name="description" content="IFSI, hôpitaux, EHPAD, FAM, foyers de vie : offrez à vos étudiants et à vos équipes un covoiturage réservé au secteur, avec des accès que vous maîtrisez.">
+  <meta name="description" content="IFSI, hôpitaux, EHPAD, FAM, foyers de vie : offrez à vos étudiants et à vos équipes un covoiturage réservé au secteur. Gratuit pour les établissements pendant la période de lancement, à Évreux et alentours.">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Meet Zoe">
   <meta property="og:locale" content="fr_FR">
@@ -42,7 +42,8 @@
         </svg>
         <span class="logo__text">meet <b>zoe</b></span>
       </a>
-      <a class="btn btn--primary btn--sm header__cta" href="connexion.html#inscription">S'inscrire</a>
+      <a class="header__connexion" href="connexion.html">Connexion</a>
+      <a class="btn btn--primary btn--sm header__cta" href="connexion.html#inscription">Créer mon compte</a>
       <button class="burger" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="menu">
         <span></span><span></span><span></span>
       </button>
@@ -62,26 +63,34 @@
     <!-- ===== Partenaires ===== -->
     <section class="section section--lav section--tete" id="partenaires">
       <div class="wrap">
-        <p class="eyebrow">Espace partenaires</p>
-        <h1>Un service de mobilité pour vos étudiants et vos équipes.</h1>
-        <p class="section__intro">IFSI, hôpitaux, EHPAD, FAM, foyers de vie : en devenant partenaire, vous donnez à vos étudiants et à vos équipes un accès immédiat, par simple code.</p>
+        <p class="eyebrow">Pour les établissements</p>
+        <h1>Un covoiturage pour vos étudiants et vos équipes.</h1>
+        <p class="section__intro">IFSI, hôpitaux, EHPAD, FAM, foyers de vie : en devenant partenaire, vous donnez à vos étudiants ou à vos salariés un accès immédiat à Meet Zoe, grâce à un simple code. C'est gratuit pour les établissements pendant la période de lancement.</p>
         <p class="note note--haut">Étudiant ou professionnel ? Votre établissement n'a pas besoin d'être partenaire : <a href="connexion.html#inscription">inscrivez-vous</a> avec un justificatif ou l'invitation d'un collègue.</p>
 
         <div class="split split--top">
-          <ul class="checks">
-            <li><b>Accès institutionnels</b> Générez et distribuez vos codes d'établissement.</li>
-            <li><b>Statistiques générales</b> Membres actifs, trajets proposés, places partagées — sans donnée individuelle.</li>
-            <li><b>Attractivité</b> Facilitez l'accès aux stages et aux postes éloignés ou en horaires décalés.</li>
-          </ul>
+          <div>
+            <h2 class="etab__titre">Ce que vous obtenez aujourd'hui</h2>
+            <ul class="checks">
+              <li><b>Un code d'accès</b> Vous le transmettez à vos étudiants ou à vos salariés. Ceux qui s'inscrivent avec ce code sont vérifiés immédiatement, sans justificatif à envoyer.</li>
+              <li><b>Un QR code et une affiche à diffuser</b> Une affiche au format A4, prête à imprimer ou à envoyer. En scannant le QR code, on arrive sur l'inscription avec votre code déjà pris en compte.</li>
+              <li><b>Un espace partenaire</b> Vous y voyez uniquement des totaux anonymes : le nombre de membres, de trajets proposés et de places partagées.</li>
+              <li><b>Jamais de données individuelles</b> Vous ne voyez ni les noms, ni les trajets, ni les messages de vos étudiants ou de vos salariés.</li>
+            </ul>
+          </div>
 
           <div class="plans">
-            <article class="plan">
-              <h3>Établissement</h3>
-              <p>Un site, un quota de membres adapté à votre effectif.</p>
-            </article>
             <article class="plan plan--main">
-              <h3>Institut de formation</h3>
-              <p>Codes par promotion, suivi des périodes de stage.</p>
+              <h3>Gratuit pendant la période de lancement</h3>
+              <p>Rien à payer pour l'établissement. Pour vos étudiants et vos salariés, l'inscription est gratuite aussi : ils partagent simplement les frais d'essence entre eux.</p>
+            </article>
+            <article class="plan">
+              <h3>Où cela fonctionne-t-il&nbsp;?</h3>
+              <p>Meet Zoe est ouvert, pour le moment, à Évreux et alentours.</p>
+            </article>
+            <article class="plan">
+              <h3>Comment commencer&nbsp;?</h3>
+              <p>Laissez-nous vos coordonnées avec le formulaire ci-dessous. Nous vous recontactons pour vous remettre votre code et votre affiche.</p>
             </article>
           </div>
         </div>
@@ -93,13 +102,13 @@
       <div class="wrap split split--top">
         <div>
           <p class="eyebrow eyebrow--light">Parlons-en</p>
-          <h2>Un échange de quinze minutes suffit pour commencer.</h2>
-          <p>Laissez-nous vos coordonnées : nous vous présentons la plateforme et construisons une proposition adaptée à votre effectif.</p>
+          <h2>Parlons-en simplement.</h2>
+          <p>Laissez-nous vos coordonnées : nous vous recontactons pour vous présenter l'outil, répondre à vos questions et vous remettre votre code d'accès.</p>
           <p class="signature">Ensemble, allons plus loin.</p>
         </div>
 
         <form class="form" id="contact" novalidate>
-          <h3>Vous représentez un établissement ?</h3>
+          <h3>Vous représentez un établissement&nbsp;?</h3>
           <p class="aide">IFSI, hôpital, EHPAD, FAM, foyer de vie : laissez-nous vos coordonnées, nous vous recontactons.</p>
           <label>Votre nom
             <input type="text" name="nom" autocomplete="name" maxlength="120" required>
@@ -136,7 +145,7 @@
           <span class="logo__text logo__text--light">meet <b>zoe</b></span>
         </a>
         <p>Le covoiturage pour ceux qui prennent soin des autres.</p>
-        <p class="footer__lieu"><span class="dot"></span> Lancement en Normandie</p>
+        <p class="footer__lieu"><span class="dot"></span> Évreux et alentours</p>
       </div>
 
       <nav class="footer__col" aria-label="La plateforme">
@@ -162,7 +171,7 @@
     </div>
 
     <div class="wrap footer__confiance">
-      <span>Membres vérifiés un par un</span>
+      <span>Membres vérifiés avant d'accéder aux trajets</span>
       <span>Permis des conducteurs contrôlés</span>
       <span>Fermé au grand public</span>
     </div>

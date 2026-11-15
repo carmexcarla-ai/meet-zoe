@@ -217,6 +217,56 @@ create table if not exists public.demandes_contact (
   created_at timestamptz not null default now()
 );
 
+-- Motifs de refus affichés au membre, et choix de recevoir ou non les e-mails.
+alter table public.profils add column if not exists motif_refus text;
+alter table public.profils add column if not exists conducteur_motif text;
+alter table public.profils add column if not exists notif_email boolean not null default true;
+alter table public.reservations add column if not exists motif_refus text;
+
+-- Alertes affichées dans l'espace du membre (et doublées d'un e-mail court).
+create table if not exists public.notifications (
+  id             bigint generated always as identity primary key,
+  membre_id      uuid not null references public.profils (id) on delete cascade,
+  type           text not null,
+  onglet         text not null default 'recherche',
+  titre          text not null,
+  texte          text,
+  reservation_id uuid,
+  lu             boolean not null default false,
+  created_at     timestamptz not null default now()
+);
+create index if not exists notifications_membre_idx on public.notifications (membre_id, lu, created_at desc);
+
+-- Réglages privés (clé du service d'e-mails). Aucun droit de lecture n'est
+-- donné : seules les fonctions internes de la base y accèdent.
+create table if not exists public.reglages_prives (
+  nom    text primary key,
+  valeur text not null
+);
+
+-- Empreintes (illisibles) des adresses e-mail de comptes suspendus qui se
+-- sont supprimés : empêche de revenir en recréant un compte.
+create table if not exists public.adresses_bloquees (
+  empreinte  text primary key,
+  created_at timestamptz not null default now()
+);
+
+-- Pannes rencontrées par les visiteurs, consultables par l'administration.
+create table if not exists public.erreurs_client (
+  id         bigint generated always as identity primary key,
+  membre_id  uuid,
+  page       text,
+  message    text,
+  created_at timestamptz not null default now()
+);
+
+-- Envoi d'e-mails depuis la base (extension fournie par Supabase).
+do $$ begin
+  create extension if not exists pg_net;
+exception when others then
+  raise notice 'Extension pg_net indisponible : les alertes resteront sur le site, sans e-mail.';
+end $$;
+
 -- ---------------------------------------------------------------------
 -- 2. FONCTIONS D'AIDE (qui suis-je ?)
 -- ---------------------------------------------------------------------
@@ -263,6 +313,15 @@ language sql stable security definer set search_path = public as $$
   );
 $$;
 
+-- Numéro de version de ce script : le site vérifie que la base est à jour.
+create or replace function public.version_base() returns integer
+language sql immutable as $$ select 16; $$;
+
+create or replace function public.empreinte_email(p_email text) returns text
+language sql immutable as $$
+  select encode(sha256(convert_to('meetzoe:' || lower(trim(p_email)), 'UTF8')), 'hex');
+$$;
+
 -- Distance à vol d'oiseau entre deux points, en kilomètres.
 create or replace function public.distance_km(lat1 double precision, lng1 double precision, lat2 double precision, lng2 double precision)
 returns double precision language sql immutable as $$
@@ -294,7 +353,7 @@ begin
   if v_categorie is null or v_categorie not in ('esi','eas','autre_formation','pro_diplome','pro_non_diplome','etablissement') then
     v_categorie := 'autre_formation';
   end if;
-  insert into profils (id, email, prenom, nom, categorie, etablissement_declare, ville, souhaite_conduire)
+  insert into profils (id, email, prenom, nom, categorie, etablissement_declare, ville, souhaite_conduire, statut)
   values (
     new.id,
     new.email,
@@ -303,7 +362,10 @@ begin
     v_categorie,
     left(nullif(trim(m ->> 'etablissement_declare'), ''), 120),
     left(nullif(trim(m ->> 'ville'), ''), 80),
-    coalesce(m ->> 'conducteur', '') = 'true'
+    coalesce(m ->> 'conducteur', '') = 'true',
+    -- Une adresse dont le compte suspendu a été supprimé reste suspendue.
+    case when exists (select 1 from adresses_bloquees where empreinte = empreinte_email(new.email))
+         then 'suspendu' else 'en_attente' end
   )
   on conflict (id) do nothing;
   return new;
@@ -387,6 +449,11 @@ declare
   v_code text;
 begin
   if not est_verifie() then raise exception 'Seuls les membres vérifiés peuvent inviter.'; end if;
+  -- Un membre entré par invitation ne peut pas inviter à son tour : chaque
+  -- invité reste recommandé par une personne dont la situation a été contrôlée.
+  if exists (select 1 from profils where id = auth.uid() and methode_verif = 'invitation') then
+    raise exception 'Les invitations sont réservées aux membres vérifiés par un code ou un justificatif.';
+  end if;
   if (select count(*) from invitations where cree_par = auth.uid()) >= 5 then
     raise exception 'Vous avez utilisé vos 5 invitations.';
   end if;
@@ -437,7 +504,7 @@ begin
   if v_statut = 'suspendu' then raise exception 'Votre compte est suspendu.'; end if;
   if p_path is null or p_path not like auth.uid()::text || '/%' then raise exception 'Fichier invalide.'; end if;
 
-  update profils set justificatif_path = p_path, methode_verif = 'justificatif', statut = 'en_attente'
+  update profils set justificatif_path = p_path, methode_verif = 'justificatif', statut = 'en_attente', motif_refus = null
   where id = auth.uid();
 end;
 $$;
@@ -458,7 +525,7 @@ begin
   end if;
 
   update profils set permis_path = p_permis, identite_path = p_identite, identite_type = p_type,
-    conducteur_statut = 'en_attente', souhaite_conduire = true
+    conducteur_statut = 'en_attente', souhaite_conduire = true, conducteur_motif = null
   where id = auth.uid();
 end;
 $$;
@@ -529,6 +596,7 @@ $$;
 -- 40 points pour le détour, 25 pour les horaires, 20 pour les jours couverts,
 -- 15 si tous les trajets demandés (aller, et retour s'il est demandé) sont assurés.
 drop function if exists public.rechercher_trajets_periode(double precision, double precision, double precision, double precision, date, date, smallint[], time, time, integer);
+drop view if exists public.membres;
 create or replace function public.rechercher_trajets_periode(
   p_dep_lat double precision, p_dep_lng double precision,
   p_dest_lat double precision, p_dest_lng double precision,
@@ -543,7 +611,8 @@ returns table (
   detour_km integer, aller_ok boolean, retour_ok boolean, avance_min integer, attente_min integer,
   dates_communes integer, dates_demandees integer, jours_communs smallint[],
   score integer, ma_reservation text,
-  note_moyenne numeric, nb_avis integer, photo_path text, heure_depart time
+  note_moyenne numeric, nb_avis integer, photo_path text, heure_depart time,
+  etablissement_verifie boolean
 )
 language sql stable security definer set search_path = public as $$
   with demande as (
@@ -571,7 +640,8 @@ language sql stable security definer set search_path = public as $$
     (select round(avg(a.note), 1) from avis a where a.cible_id = t.conducteur_id and not a.masque),
     (select count(*) from avis a where a.cible_id = t.conducteur_id and not a.masque)::integer,
     p.photo_path,
-    t.heure_depart
+    t.heure_depart,
+    e.id is not null
   from trajets_compatibles(auth.uid(), p_dep_lat, p_dep_lng, p_dest_lat, p_dest_lng,
          p_debut, p_fin, p_jours, p_arrivee, p_retour, least(greatest(p_marge, 15), 180)) c
   join trajets t on t.id = c.trajet_id
@@ -646,7 +716,7 @@ begin
     -- « epoch » : le conducteur n'a encore rien lu de cette conversation.
     insert into reservations (trajet_id, passager_id, lu_conducteur_le) values (p_trajet, auth.uid(), 'epoch') returning * into v_res;
   elsif v_res.statut in ('annulee', 'contact') then
-    update reservations set statut = 'demandee' where id = v_res.id;
+    update reservations set statut = 'demandee', motif_refus = null, lu_conducteur_le = 'epoch' where id = v_res.id;
   elsif v_res.statut = 'refusee' then
     raise exception 'Le conducteur a refusé cette demande.';
   else
@@ -668,6 +738,7 @@ language plpgsql security definer set search_path = public as $$
 declare
   v_trajet trajets;
   v_id     uuid;
+  v_statut text;
 begin
   if not est_verifie() then raise exception 'Accès réservé aux membres vérifiés.'; end if;
   if nullif(trim(p_message), '') is null then raise exception 'Écrivez votre message.'; end if;
@@ -675,9 +746,14 @@ begin
   if v_trajet.id is null or not v_trajet.actif then raise exception 'Ce trajet n''est plus disponible.'; end if;
   if v_trajet.conducteur_id = auth.uid() then raise exception 'C''est votre propre trajet.'; end if;
 
-  select id into v_id from reservations where trajet_id = p_trajet and passager_id = auth.uid();
+  select id, statut into v_id, v_statut from reservations where trajet_id = p_trajet and passager_id = auth.uid();
   if v_id is null then
     insert into reservations (trajet_id, passager_id, statut, lu_conducteur_le) values (p_trajet, auth.uid(), 'contact', 'epoch') returning id into v_id;
+  elsif v_statut = 'refusee' then
+    raise exception 'Le conducteur a refusé votre demande : vous ne pouvez plus lui écrire au sujet de ce trajet.';
+  elsif v_statut = 'annulee' then
+    -- Après une annulation, la conversation reprend comme une simple discussion.
+    update reservations set statut = 'contact' where id = v_id;
   end if;
   insert into messages (reservation_id, expediteur_id, contenu) values (v_id, auth.uid(), left(trim(p_message), 2000));
   update reservations set lu_passager_le = now() where id = v_id;
@@ -721,10 +797,13 @@ language sql security definer set search_path = public as $$
     lu_conducteur_le = case when t.conducteur_id = auth.uid() then now() else r.lu_conducteur_le end
   from trajets t
   where t.id = r.trajet_id and r.id = p_reservation and auth.uid() in (r.passager_id, t.conducteur_id);
+  update notifications set lu = true
+  where membre_id = auth.uid() and reservation_id = p_reservation and type in ('message', 'demande') and not lu;
 $$;
 
 -- Le conducteur accepte ou refuse une demande.
-create or replace function public.repondre_reservation(p_reservation uuid, p_accepter boolean) returns void
+drop function if exists public.repondre_reservation(uuid, boolean);
+create or replace function public.repondre_reservation(p_reservation uuid, p_accepter boolean, p_motif text default null) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   v_res    reservations;
@@ -742,9 +821,9 @@ begin
     select count(*) into v_prises from reservations
     where trajet_id = v_trajet.id and statut = 'acceptee' and id <> v_res.id;
     if v_prises >= v_trajet.places then raise exception 'Il ne reste plus de place sur ce trajet.'; end if;
-    update reservations set statut = 'acceptee' where id = v_res.id;
+    update reservations set statut = 'acceptee', motif_refus = null where id = v_res.id;
   else
-    update reservations set statut = 'refusee' where id = v_res.id;
+    update reservations set statut = 'refusee', motif_refus = left(nullif(trim(p_motif), ''), 200) where id = v_res.id;
   end if;
 end;
 $$;
@@ -834,6 +913,9 @@ language sql stable security definer set search_path = public as $$
     'initiale', upper(left(p.nom, 1)),
     'categorie', p.categorie,
     'etablissement', coalesce(e.nom, p.etablissement_declare),
+    -- Vrai seulement si le membre est rattaché à un établissement par un code.
+    'etablissement_verifie', e.id is not null,
+    'methode_verif', p.methode_verif,
     'conducteur_valide', p.conducteur_statut = 'valide',
     'membre_depuis', p.created_at,
     'vehicule', p.vehicule,
@@ -873,7 +955,7 @@ begin
   insert into avis (reservation_id, auteur_id, cible_id, note, commentaire)
   values (v_res.id, auth.uid(), v_trajet.conducteur_id, p_note, left(nullif(trim(p_commentaire), ''), 500))
   on conflict (reservation_id, auteur_id)
-  do update set note = excluded.note, commentaire = excluded.commentaire, masque = false, created_at = now();
+  do update set note = excluded.note, commentaire = excluded.commentaire, created_at = now();
 end;
 $$;
 
@@ -984,42 +1066,447 @@ create trigger etablissements_journal after insert or update or delete on public
   for each row execute function public.journal_etablissements();
 
 -- ---------------------------------------------------------------------
+-- 6 quater. ALERTES ET E-MAILS
+--   Chaque événement important crée une alerte dans l'espace du membre et,
+--   si la clé du service d'e-mails est renseignée, un e-mail court.
+--   Les e-mails ne contiennent jamais le contenu des messages.
+-- ---------------------------------------------------------------------
+
+create or replace function public.texte_html(p text) returns text
+language sql immutable as $$
+  select replace(replace(replace(coalesce(p, ''), '&', '&amp;'), '<', '&lt;'), '>', '&gt;');
+$$;
+
+-- Envoie un e-mail par le service Brevo. Ne bloque jamais l'action en cours :
+-- sans clé, ou si l'envoi échoue, il ne se passe simplement rien.
+create or replace function public.envoyer_email(p_email text, p_prenom text, p_titre text, p_texte text, p_page text) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_cle  text := (select valeur from reglages_prives where nom = 'brevo_cle');
+  v_url  text := coalesce((select valeur from reglages_prives where nom = 'brevo_url'), 'https://api.brevo.com/v3/smtp/email');
+  v_site text := coalesce((select valeur from reglages_prives where nom = 'site'), 'https://meetzoe.fr');
+  v_exp  text := coalesce((select valeur from reglages_prives where nom = 'expediteur'), 'contact@meetzoe.fr');
+begin
+  if v_cle is null or p_email is null then return; end if;
+  perform net.http_post(
+    url := v_url,
+    headers := jsonb_build_object('api-key', v_cle, 'content-type', 'application/json', 'accept', 'application/json'),
+    body := jsonb_build_object(
+      'sender', jsonb_build_object('name', 'Meet Zoe', 'email', v_exp),
+      'to', jsonb_build_array(jsonb_build_object('email', p_email)),
+      'subject', p_titre,
+      'htmlContent',
+        '<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;color:#2b2233;max-width:520px">'
+        || '<p>Bonjour ' || texte_html(p_prenom) || ',</p>'
+        || '<p><strong>' || texte_html(p_titre) || '</strong></p>'
+        || case when nullif(p_texte, '') is null then '' else '<p>' || texte_html(p_texte) || '</p>' end
+        || '<p><a href="' || v_site || '/' || p_page || '">Ouvrir Meet Zoe</a></p>'
+        || '<p style="font-size:13px;color:#6b6475">Vous recevez cet e-mail parce que vous avez un compte sur Meet Zoe. '
+        || 'Pour ne plus recevoir ces alertes, décochez « Recevoir les alertes par e-mail » dans votre profil. '
+        || 'Merci de ne pas répondre à cet e-mail : écrivez-nous depuis la page Contact du site.</p></div>'
+    )
+  );
+exception when others then
+  null;
+end;
+$$;
+
+create or replace function public.notifier(
+  p_membre uuid, p_type text, p_onglet text, p_titre text, p_texte text default null, p_reservation uuid default null
+) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_p profils;
+begin
+  select * into v_p from profils where id = p_membre;
+  if v_p.id is null then return; end if;
+  insert into notifications (membre_id, type, onglet, titre, texte, reservation_id)
+  values (p_membre, p_type, p_onglet, left(p_titre, 200), left(p_texte, 500), p_reservation);
+  -- Un compte suspendu ne reçoit plus que les e-mails qui concernent son compte.
+  if v_p.notif_email and (v_p.statut <> 'suspendu' or p_type = 'compte') then
+    perform envoyer_email(v_p.email, v_p.prenom, p_titre, p_texte,
+      case when p_type = 'admin' then 'admin.html' else 'espace.html' end);
+  end if;
+end;
+$$;
+
+create or replace function public.notifier_admins(p_titre text, p_texte text default null) returns void
+language plpgsql security definer set search_path = public as $$
+declare
+  v_id uuid;
+begin
+  for v_id in select id from profils where role = 'admin' and statut = 'verifie' loop
+    -- Une seule alerte par sujet tant qu'elle n'est pas lue : un afflux de
+    -- messages de contact ne peut pas épuiser le quota d'e-mails.
+    if not exists (select 1 from notifications where membre_id = v_id and type = 'admin' and titre = p_titre and not lu) then
+      perform notifier(v_id, 'admin', 'admin', p_titre, p_texte);
+    end if;
+  end loop;
+end;
+$$;
+
+create or replace function public.nom_court(p_membre uuid) returns text
+language sql stable security definer set search_path = public as $$
+  select prenom || ' ' || upper(left(nom, 1)) || '.' from profils where id = p_membre;
+$$;
+
+-- Le membre marque ses alertes comme lues (toutes, ou celles d'un onglet).
+create or replace function public.marquer_notifications(p_onglet text default null) returns void
+language sql security definer set search_path = public as $$
+  update notifications set lu = true
+  where membre_id = auth.uid() and not lu and (p_onglet is null or onglet = p_onglet);
+$$;
+
+-- Demandes de place, réponses et annulations.
+create or replace function public.notif_reservations() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_t    trajets;
+  v_pass text := nom_court(new.passager_id);
+  v_cond text;
+  v_traj text;
+  v_motif text := case when new.motif_refus is null then '' else ' Motif indiqué : ' || rtrim(new.motif_refus, '. ') || '.' end;
+begin
+  if tg_op = 'UPDATE' and new.statut = old.statut then return null; end if;
+  select * into v_t from trajets where id = new.trajet_id;
+  if v_t.id is null then return null; end if;
+  v_cond := nom_court(v_t.conducteur_id);
+  v_traj := 'Trajet ' || v_t.depart_ville || ' → ' || v_t.destination_nom || '.';
+
+  if new.statut = 'demandee' then
+    perform notifier(v_t.conducteur_id, 'demande', 'trajets', v_pass || ' demande une place',
+      v_traj || ' Répondez depuis « Mes trajets ».', new.id);
+  elsif tg_op = 'UPDATE' and new.statut = 'acceptee' then
+    perform notifier(new.passager_id, 'reponse', 'reservations', v_cond || ' a accepté votre demande',
+      v_traj || ' Organisez-vous ensemble par message.', new.id);
+  elsif tg_op = 'UPDATE' and new.statut = 'refusee' and old.statut = 'acceptee' then
+    perform notifier(new.passager_id, 'reponse', 'reservations', v_cond || ' a retiré votre place',
+      v_traj || v_motif || ' Vous pouvez chercher un autre trajet.', new.id);
+  elsif tg_op = 'UPDATE' and new.statut = 'refusee' and old.statut = 'demandee' then
+    perform notifier(new.passager_id, 'reponse', 'reservations', v_cond || ' n''a pas retenu votre demande',
+      v_traj || v_motif || ' Vous pouvez chercher un autre trajet.', new.id);
+  elsif tg_op = 'UPDATE' and new.statut = 'annulee' and old.statut = 'acceptee' then
+    perform notifier(v_t.conducteur_id, 'annulation', 'trajets', v_pass || ' a annulé sa place',
+      v_traj || ' La place est de nouveau libre.', new.id);
+  elsif tg_op = 'UPDATE' and new.statut = 'annulee' and old.statut = 'demandee' then
+    perform notifier(v_t.conducteur_id, 'annulation', 'trajets', v_pass || ' a annulé sa demande', v_traj, new.id);
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists reservations_notif on public.reservations;
+create trigger reservations_notif after insert or update on public.reservations
+  for each row execute function public.notif_reservations();
+
+-- Nouveau message : une seule alerte tant que la précédente n'a pas été lue.
+create or replace function public.notif_messages() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_r    reservations;
+  v_t    trajets;
+  v_dest uuid;
+begin
+  select * into v_r from reservations where id = new.reservation_id;
+  select * into v_t from trajets where id = v_r.trajet_id;
+  if v_t.id is null then return null; end if;
+  v_dest := case when new.expediteur_id = v_r.passager_id then v_t.conducteur_id else v_r.passager_id end;
+  if exists (select 1 from notifications
+             where membre_id = v_dest and reservation_id = v_r.id and not lu
+               and (type = 'message' or (type = 'demande' and created_at = now()))) then
+    return null;
+  end if;
+  perform notifier(v_dest, 'message', 'messages', nom_court(new.expediteur_id) || ' vous a écrit',
+    'Au sujet du trajet ' || v_t.depart_ville || ' → ' || v_t.destination_nom || '. Lisez son message sur le site.', v_r.id);
+  return null;
+end;
+$$;
+drop trigger if exists messages_notif on public.messages;
+create trigger messages_notif after insert on public.messages
+  for each row execute function public.notif_messages();
+
+-- Compte vérifié ou refusé, conducteur validé ou refusé, dossiers à contrôler.
+create or replace function public.notif_profils() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if new.statut is distinct from old.statut then
+    if new.statut = 'verifie' then
+      perform notifier(new.id, 'compte', 'recherche', 'Votre compte Meet Zoe est vérifié',
+        'Vous pouvez maintenant chercher un trajet ou en proposer un.');
+    elsif new.statut = 'refuse' then
+      perform notifier(new.id, 'compte', 'recherche', 'Votre justificatif n''a pas été accepté',
+        coalesce('Motif : ' || rtrim(new.motif_refus, '. ') || '. ', '') || 'Vous pouvez en envoyer un autre depuis votre espace.');
+    elsif new.statut = 'suspendu' then
+      perform notifier(new.id, 'compte', 'recherche', 'Votre compte Meet Zoe est suspendu',
+        coalesce('Motif : ' || rtrim(new.motif_refus, '. ') || '. ', '') || 'Pour toute question, écrivez-nous depuis la page Contact.');
+    end if;
+  end if;
+  if new.conducteur_statut is distinct from old.conducteur_statut then
+    if new.conducteur_statut = 'valide' then
+      perform notifier(new.id, 'conducteur', 'proposer', 'Vous êtes validé comme conducteur',
+        'Vous pouvez publier votre premier trajet.');
+    elsif new.conducteur_statut = 'refuse' then
+      perform notifier(new.id, 'conducteur', 'proposer', 'Vos documents de conducteur n''ont pas été acceptés',
+        coalesce('Motif : ' || rtrim(new.conducteur_motif, '. ') || '. ', '') || 'Vous pouvez les renvoyer depuis « Proposer un trajet ».');
+    elsif new.conducteur_statut = 'en_attente' then
+      perform notifier_admins('Documents de conducteur à contrôler', new.prenom || ' ' || new.nom);
+    end if;
+  end if;
+  if new.justificatif_path is not null and new.justificatif_path is distinct from old.justificatif_path then
+    perform notifier_admins('Justificatif à contrôler', new.prenom || ' ' || new.nom);
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists profils_notif on public.profils;
+create trigger profils_notif after update on public.profils
+  for each row execute function public.notif_profils();
+
+-- Le nom et le prénom ont été contrôlés avec la pièce d'identité :
+-- un conducteur ne peut plus les changer lui-même.
+create or replace function public.verrouiller_nom() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if (new.prenom is distinct from old.prenom or new.nom is distinct from old.nom)
+     and (old.conducteur_statut in ('en_attente', 'valide')
+          or (old.statut = 'verifie' and old.methode_verif = 'justificatif')
+          or old.justificatif_path is not null)
+     and auth.uid() = old.id then
+    raise exception 'Votre nom a été contrôlé avec votre justificatif ou votre pièce d''identité. Pour le corriger, écrivez-nous depuis la page Contact.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists profils_nom_verrou on public.profils;
+create trigger profils_nom_verrou before update on public.profils
+  for each row execute function public.verrouiller_nom();
+
+-- Trajet modifié, mis en pause, réactivé ou supprimé : les passagers sont prévenus.
+create or replace function public.notif_trajets() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_cond  text := coalesce(nom_court(old.conducteur_id), 'Le conducteur');
+  v_traj  text := 'Trajet ' || old.depart_ville || ' → ' || old.destination_nom || '.';
+  v_titre text;
+  v_texte text;
+  v_r     record;
+begin
+  if tg_op = 'DELETE' then
+    v_titre := v_cond || ' a supprimé son trajet';
+    v_texte := v_traj || ' Votre demande n''existe plus. Vous pouvez chercher un autre trajet.';
+  elsif new.actif is distinct from old.actif then
+    v_titre := v_cond || case when new.actif then ' a réactivé son trajet' else ' a mis son trajet en pause' end;
+    v_texte := v_traj || case when new.actif then '' else ' Ce trajet n''est pas assuré pour le moment.' end;
+  elsif (new.heure_depart, new.heure_arrivee, new.heure_retour, new.date_debut, new.date_fin, new.jours, new.depart_ville, new.destination_nom)
+        is distinct from
+        (old.heure_depart, old.heure_arrivee, old.heure_retour, old.date_debut, old.date_fin, old.jours, old.depart_ville, old.destination_nom) then
+    v_titre := v_cond || ' a modifié son trajet';
+    v_texte := v_traj || ' Vérifiez les jours et les horaires dans « Mes réservations ».';
+  else
+    return null;
+  end if;
+  for v_r in select id, passager_id from reservations where trajet_id = old.id and statut in ('demandee', 'acceptee') loop
+    perform notifier(v_r.passager_id, 'trajet', case when tg_op = 'DELETE' then 'recherche' else 'reservations' end,
+      v_titre, v_texte, case when tg_op = 'DELETE' then null else v_r.id end);
+  end loop;
+  -- Avant une suppression, il faut rendre la ligne pour que la suppression ait lieu.
+  if tg_op = 'DELETE' then return old; end if;
+  return null;
+end;
+$$;
+drop trigger if exists trajets_notif_maj on public.trajets;
+create trigger trajets_notif_maj after update on public.trajets
+  for each row execute function public.notif_trajets();
+drop trigger if exists trajets_notif_suppr on public.trajets;
+create trigger trajets_notif_suppr before delete on public.trajets
+  for each row execute function public.notif_trajets();
+
+-- Nouveau trajet : les membres dont une recherche enregistrée correspond sont prévenus.
+create or replace function public.notif_nouveau_trajet() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_b    besoins;
+  v_vus  uuid[] := '{}';
+begin
+  if not new.actif then return null; end if;
+  for v_b in select b.* from besoins b join profils p on p.id = b.membre_id and p.statut = 'verifie'
+             where b.membre_id <> new.conducteur_id and b.date_fin >= current_date order by b.created_at limit 500 loop
+    if v_b.membre_id = any (v_vus) then continue; end if;
+    if exists (select 1 from trajets_compatibles(v_b.membre_id, v_b.depart_lat, v_b.depart_lng, v_b.dest_lat, v_b.dest_lng,
+                 v_b.date_debut, v_b.date_fin, v_b.jours, v_b.heure_arrivee, v_b.heure_retour, v_b.marge_min) c
+               where c.trajet_id = new.id) then
+      v_vus := v_vus || v_b.membre_id;
+      perform notifier(v_b.membre_id, 'trajet', 'recherche', 'Un nouveau trajet correspond à votre recherche',
+        v_b.depart_ville || ' → ' || v_b.destination_ville || '. Retrouvez-le dans « Mes recherches enregistrées ».');
+    end if;
+  end loop;
+  return null;
+end;
+$$;
+drop trigger if exists trajets_notif_nouveau on public.trajets;
+create trigger trajets_notif_nouveau after insert on public.trajets
+  for each row execute function public.notif_nouveau_trajet();
+
+-- Signalements et messages de contact : l'administration est prévenue.
+create or replace function public.notif_admin_arrivee() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if tg_table_name = 'signalements' then
+    perform notifier_admins('Nouveau signalement à traiter', 'Ouvrez l''onglet « Modération ».');
+  else
+    perform notifier_admins('Nouveau message de contact', left(new.nom || coalesce(' · ' || new.organisme, ''), 200));
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists signalements_notif on public.signalements;
+create trigger signalements_notif after insert on public.signalements
+  for each row execute function public.notif_admin_arrivee();
+drop trigger if exists contacts_notif on public.demandes_contact;
+create trigger contacts_notif after insert on public.demandes_contact
+  for each row execute function public.notif_admin_arrivee();
+
+-- Une panne rencontrée dans le navigateur est notée (300 par jour au plus).
+create or replace function public.signaler_erreur(p_page text, p_message text) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from erreurs_client where created_at > now() - interval '1 day') >= 300 then return; end if;
+  if exists (select 1 from erreurs_client where message = left(p_message, 500) and created_at > now() - interval '1 day') then return; end if;
+  insert into erreurs_client (membre_id, page, message) values (auth.uid(), left(p_page, 80), left(p_message, 500));
+  delete from erreurs_client where created_at < now() - interval '60 days';
+end;
+$$;
+
+-- Conversation supprimée (trajet ou compte effacé) : ses alertes ne restent pas « non lues ».
+create or replace function public.reservations_nettoyage() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  update notifications set lu = true where reservation_id = old.id and not lu;
+  return old;
+end;
+$$;
+drop trigger if exists reservations_nettoyage on public.reservations;
+create trigger reservations_nettoyage before delete on public.reservations
+  for each row execute function public.reservations_nettoyage();
+update public.notifications n set lu = true
+where n.type = 'message' and not n.lu and n.reservation_id is not null
+  and not exists (select 1 from public.reservations r where r.id = n.reservation_id);
+
+-- On ne peut pas proposer moins de places que de passagers déjà acceptés.
+create or replace function public.verifier_places() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_n integer;
+begin
+  select count(*) into v_n from reservations where trajet_id = new.id and statut = 'acceptee';
+  if new.places < v_n then
+    raise exception 'Vous avez déjà accepté % passager(s) : gardez au moins autant de places, ou retirez d''abord un passager.', v_n;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists trajets_places on public.trajets;
+create trigger trajets_places before update of places on public.trajets
+  for each row execute function public.verifier_places();
+
+-- État des e-mails d'alerte, pour l'administration : la clé est-elle
+-- enregistrée, et combien d'envois ont échoué depuis 24 heures ?
+create or replace function public.etat_emails() returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_envois integer := 0;
+  v_echecs integer := 0;
+begin
+  if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
+  begin
+    select count(*), count(*) filter (where status_code is null or status_code >= 400)
+      into v_envois, v_echecs
+    from net._http_response where created > now() - interval '1 day';
+  exception when others then
+    v_envois := 0; v_echecs := 0;
+  end;
+  return jsonb_build_object(
+    'cle', exists (select 1 from reglages_prives where nom = 'brevo_cle'),
+    'envois', v_envois, 'echecs', v_echecs);
+end;
+$$;
+
+-- ---------------------------------------------------------------------
 -- 7. ADMINISTRATION
 -- ---------------------------------------------------------------------
 
-create or replace function public.admin_definir_statut(p_membre uuid, p_statut text) returns void
+drop function if exists public.admin_definir_statut(uuid, text);
+create or replace function public.admin_definir_statut(p_membre uuid, p_statut text, p_motif text default null) returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_email text;
 begin
   if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
   if p_statut not in ('en_attente','verifie','refuse','suspendu') then raise exception 'Statut inconnu.'; end if;
   if p_membre = auth.uid() then raise exception 'Vous ne pouvez pas modifier votre propre statut.'; end if;
+  -- Le justificatif doit avoir été réellement effacé avant d'enregistrer la décision.
+  if p_statut in ('verifie','refuse') and exists (
+       select 1 from storage.objects where bucket_id = 'justificatifs' and name like p_membre::text || '/%') then
+    raise exception 'Le justificatif n''a pas pu être effacé. Réessayez dans un instant.';
+  end if;
   update profils set
     statut = p_statut,
     methode_verif = case when p_statut = 'verifie' then coalesce(methode_verif, 'admin') else methode_verif end,
     verifie_le = case when p_statut = 'verifie' then coalesce(verifie_le, now()) else verifie_le end,
-    justificatif_path = case when p_statut in ('verifie','refuse') then null else justificatif_path end
-  where id = p_membre;
+    justificatif_path = case when p_statut in ('verifie','refuse') then null else justificatif_path end,
+    motif_refus = case when p_statut in ('refuse','suspendu') then left(nullif(trim(p_motif), ''), 200) else null end
+  where id = p_membre
+  returning email into v_email;
   if not found then raise exception 'Membre introuvable.'; end if;
-  perform journaliser('Statut du membre : ' || p_statut, p_membre, null);
+  if p_statut <> 'suspendu' then
+    delete from adresses_bloquees where empreinte = empreinte_email(v_email);
+  else
+    -- Les trajets d'un membre suspendu sont mis en pause : ses passagers sont prévenus.
+    update trajets set actif = false where conducteur_id = p_membre and actif;
+  end if;
+  perform journaliser('Statut du membre : ' || p_statut, p_membre, p_motif);
 end;
 $$;
 
 -- Valide ou refuse un conducteur après contrôle de ses documents.
--- Les chemins des fichiers sont oubliés : les fichiers sont effacés du stockage.
-create or replace function public.admin_valider_conducteur(p_membre uuid, p_valider boolean) returns void
+-- Les fichiers doivent avoir été effacés du stockage avant la décision :
+-- la base le vérifie elle-même, sans se fier au navigateur.
+drop function if exists public.admin_valider_conducteur(uuid, boolean);
+create or replace function public.admin_valider_conducteur(p_membre uuid, p_valider boolean, p_motif text default null) returns void
 language plpgsql security definer set search_path = public as $$
 begin
   if not est_admin() then raise exception 'Action réservée à l''administration.'; end if;
+  if exists (select 1 from storage.objects where bucket_id = 'documents-conducteur' and name like p_membre::text || '/%') then
+    raise exception 'Les documents n''ont pas pu être effacés. Réessayez dans un instant.';
+  end if;
   update profils set
     conducteur_statut = case when p_valider then 'valide' else 'refuse' end,
     conducteur_valide_le = case when p_valider then now() else null end,
+    conducteur_motif = case when p_valider then null else left(nullif(trim(p_motif), ''), 200) end,
     permis_path = null, identite_path = null
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
-  perform journaliser(case when p_valider then 'Conducteur validé' else 'Conducteur refusé' end, p_membre, null);
+  perform journaliser(case when p_valider then 'Conducteur validé' else 'Conducteur refusé' end, p_membre, p_motif);
   -- Un conducteur refusé ne peut plus proposer ses trajets.
-  if not p_valider then update trajets set actif = false where conducteur_id = p_membre; end if;
+  if not p_valider then update trajets set actif = false where conducteur_id = p_membre and actif; end if;
 end;
+$$;
+
+-- Fichiers restés dans le stockage sans être rattachés à un dossier en cours
+-- (dépôt interrompu, ancien envoi remplacé…). L'administration les efface.
+create or replace function public.fichiers_orphelins()
+returns table (bucket text, chemin text)
+language sql stable security definer set search_path = public as $$
+  select o.bucket_id, o.name
+  from storage.objects o
+  left join profils p on p.id::text = (storage.foldername(o.name))[1]
+  where est_admin()
+    and o.bucket_id in ('justificatifs', 'documents-conducteur', 'photos')
+    and o.created_at < now() - interval '1 hour'
+    and (p.id is null
+      or (o.bucket_id = 'justificatifs' and o.name is distinct from p.justificatif_path)
+      or (o.bucket_id = 'documents-conducteur' and o.name is distinct from p.permis_path and o.name is distinct from p.identite_path)
+      or (o.bucket_id = 'photos' and o.name is distinct from p.photo_path))
+  limit 200;
 $$;
 
 -- Donne un rôle. Pour « partenaire », l'établissement géré est obligatoire.
@@ -1030,12 +1517,14 @@ begin
   if p_role not in ('membre','partenaire','admin') then raise exception 'Rôle inconnu.'; end if;
   if p_membre = auth.uid() then raise exception 'Vous ne pouvez pas modifier votre propre rôle.'; end if;
   if p_role = 'partenaire' and p_etablissement is null then raise exception 'Choisissez l''établissement géré.'; end if;
+  -- Le rôle ne vérifie pas le compte à la place du contrôle : le justificatif
+  -- passe toujours par la validation, qui l'efface.
+  if p_role in ('partenaire','admin') and (select statut from profils where id = p_membre) is distinct from 'verifie' then
+    raise exception 'Validez d''abord ce membre, puis donnez-lui ce rôle.';
+  end if;
   update profils set
     role = p_role,
-    etablissement_id = case when p_role = 'partenaire' then p_etablissement else etablissement_id end,
-    statut = case when p_role in ('partenaire','admin') then 'verifie' else statut end,
-    methode_verif = case when p_role in ('partenaire','admin') then coalesce(methode_verif, 'admin') else methode_verif end,
-    verifie_le = case when p_role in ('partenaire','admin') then coalesce(verifie_le, now()) else verifie_le end
+    etablissement_id = case when p_role = 'partenaire' then p_etablissement else etablissement_id end
   where id = p_membre;
   if not found then raise exception 'Membre introuvable.'; end if;
   perform journaliser('Rôle du membre : ' || p_role, p_membre, null);
@@ -1045,9 +1534,23 @@ $$;
 -- Droit à l'effacement (RGPD) : un membre supprime son propre compte.
 create or replace function public.supprimer_mon_compte() returns void
 language plpgsql security definer set search_path = public as $$
+declare
+  v_profil profils;
 begin
-  if auth.uid() is null then raise exception 'Connectez-vous.'; end if;
-  delete from auth.users where id = auth.uid();
+  select * into v_profil from profils where id = auth.uid();
+  if v_profil.id is null then raise exception 'Connectez-vous.'; end if;
+  -- Aucun fichier (justificatif, permis, pièce d'identité, photo) ne doit rester.
+  if exists (select 1 from storage.objects
+             where bucket_id in ('justificatifs', 'documents-conducteur', 'photos')
+               and name like v_profil.id::text || '/%') then
+    raise exception 'Vos fichiers n''ont pas pu être effacés. Réessayez dans un instant.';
+  end if;
+  if v_profil.statut = 'suspendu' then
+    insert into adresses_bloquees (empreinte) values (empreinte_email(v_profil.email)) on conflict do nothing;
+  end if;
+  -- Les conducteurs chez qui ce membre avait une demande ou une place sont prévenus.
+  update reservations set statut = 'annulee' where passager_id = v_profil.id and statut in ('demandee', 'acceptee');
+  delete from auth.users where id = v_profil.id;
 end;
 $$;
 
@@ -1059,7 +1562,8 @@ $$;
 -- établissement. Jamais l'e-mail, le téléphone ou le justificatif.
 create or replace view public.membres as
   select p.id, p.prenom, upper(left(p.nom, 1)) as initiale, p.categorie,
-         coalesce(e.nom, p.etablissement_declare) as etablissement
+         coalesce(e.nom, p.etablissement_declare) as etablissement,
+         e.id is not null as etablissement_verifie
   from public.profils p
   left join public.etablissements e on e.id = p.etablissement_id
   where p.statut = 'verifie' and public.est_verifie();
@@ -1085,19 +1589,27 @@ alter table public.besoins          enable row level security;
 alter table public.avis             enable row level security;
 alter table public.signalements     enable row level security;
 alter table public.journal_admin    enable row level security;
+alter table public.notifications    enable row level security;
+alter table public.reglages_prives  enable row level security;
+alter table public.adresses_bloquees enable row level security;
+alter table public.erreurs_client   enable row level security;
 
 -- On retire tous les droits par défaut, puis on n'accorde que le nécessaire.
 revoke all on public.etablissements, public.profils, public.codes_acces, public.invitations,
               public.trajets, public.reservations, public.messages, public.demandes_contact,
               public.besoins, public.avis, public.signalements, public.journal_admin,
-              public.membres, public.etablissements_publics
+              public.membres, public.etablissements_publics,
+              public.notifications, public.reglages_prives, public.adresses_bloquees, public.erreurs_client
   from anon, authenticated;
+revoke all on public.reglages_prives, public.adresses_bloquees from public;
 
 grant select on public.membres, public.etablissements_publics to authenticated;
 
 grant select, insert, update, delete on public.etablissements to authenticated;
 grant select on public.profils to authenticated;
-grant update (prenom, nom, ville, telephone, etablissement_declare, bio, vehicule) on public.profils to authenticated;
+grant update (prenom, nom, ville, telephone, etablissement_declare, bio, vehicule, notif_email) on public.profils to authenticated;
+grant select on public.notifications, public.erreurs_client to authenticated;
+grant delete on public.erreurs_client to authenticated;
 grant select on public.avis, public.signalements, public.journal_admin to authenticated;
 grant update (statut) on public.signalements to authenticated;
 grant select on public.codes_acces to authenticated;
@@ -1110,7 +1622,7 @@ grant update (depart_ville, depart_lat, depart_lng, destination_nom, destination
   on public.trajets to authenticated;
 grant select on public.reservations to authenticated;
 grant select, insert, delete on public.besoins to authenticated;
-grant update (vu_le) on public.besoins to authenticated;
+grant update (vu_le, date_debut, date_fin) on public.besoins to authenticated;
 grant select, insert on public.messages to authenticated;
 grant insert (nom, email, organisme, message) on public.demandes_contact to anon, authenticated;
 grant select, delete on public.demandes_contact to authenticated;
@@ -1158,7 +1670,9 @@ create policy invitations_lecture on public.invitations for select to authentica
 -- Trajets : visibles des seuls membres vérifiés ; chacun gère les siens.
 drop policy if exists trajets_lecture on public.trajets;
 create policy trajets_lecture on public.trajets for select to authenticated
-  using (public.est_verifie());
+  using (public.est_verifie() and (
+    conducteur_id = auth.uid() or public.est_admin()
+    or exists (select 1 from public.reservations r where r.trajet_id = trajets.id and r.passager_id = auth.uid())));
 drop policy if exists trajets_creation on public.trajets;
 create policy trajets_creation on public.trajets for insert to authenticated
   with check (public.est_conducteur() and conducteur_id = auth.uid());
@@ -1203,12 +1717,23 @@ create policy journal_lecture on public.journal_admin for select to authenticate
 -- Réservations : visibles du passager et du conducteur concernés.
 drop policy if exists reservations_lecture on public.reservations;
 create policy reservations_lecture on public.reservations for select to authenticated
-  using (public.participe_reservation(id) or public.est_admin());
+  using ((public.participe_reservation(id) and public.est_verifie()) or public.est_admin());
 
 -- Messages : uniquement entre le passager et le conducteur d'une réservation.
 drop policy if exists messages_lecture on public.messages;
 create policy messages_lecture on public.messages for select to authenticated
-  using (public.participe_reservation(reservation_id));
+  using (public.participe_reservation(reservation_id) and public.est_verifie());
+
+-- Alertes : chacun lit les siennes. Pannes : lues par l'administration.
+drop policy if exists notifications_lecture on public.notifications;
+create policy notifications_lecture on public.notifications for select to authenticated
+  using (membre_id = auth.uid());
+drop policy if exists erreurs_lecture on public.erreurs_client;
+create policy erreurs_lecture on public.erreurs_client for select to authenticated
+  using (public.est_admin());
+drop policy if exists erreurs_suppression on public.erreurs_client;
+create policy erreurs_suppression on public.erreurs_client for delete to authenticated
+  using (public.est_admin());
 drop policy if exists messages_envoi on public.messages;
 create policy messages_envoi on public.messages for insert to authenticated
   with check (public.est_verifie() and expediteur_id = auth.uid() and public.conversation_ouverte(reservation_id));
@@ -1231,7 +1756,7 @@ create policy contact_suppression on public.demandes_contact for delete to authe
 revoke execute on all functions in schema public from public, anon, authenticated;
 grant execute on function
   public.est_verifie(), public.est_admin(), public.est_conducteur(), public.mon_etablissement_gere(),
-  public.soumettre_documents_conducteur(text, text, text), public.admin_valider_conducteur(uuid, boolean),
+  public.soumettre_documents_conducteur(text, text, text), public.admin_valider_conducteur(uuid, boolean, text),
   public.contacter_conducteur(uuid, text), public.mes_conversations(), public.marquer_lu(uuid),
   public.participe_reservation(uuid), public.conversation_ouverte(uuid),
   public.fiche_membre(uuid), public.laisser_avis(uuid, integer, text), public.signaler_membre(uuid, text),
@@ -1240,12 +1765,13 @@ grant execute on function
   public.soumettre_justificatif(text),
   public.rechercher_trajets_periode(double precision, double precision, double precision, double precision, date, date, smallint[], time, time, integer),
   public.mes_besoins(), public.nb_besoins(), public.besoins_ouverts(),
-  public.demander_reservation(uuid, text), public.repondre_reservation(uuid, boolean),
+  public.demander_reservation(uuid, text), public.repondre_reservation(uuid, boolean, text),
   public.annuler_reservation(uuid),
   public.creer_code(text, integer, date, uuid), public.stats_etablissement(uuid),
-  public.admin_definir_statut(uuid, text), public.admin_definir_role(uuid, text, uuid),
-  public.supprimer_mon_compte()
+  public.admin_definir_statut(uuid, text, text), public.admin_definir_role(uuid, text, uuid),
+  public.supprimer_mon_compte(), public.marquer_notifications(text), public.fichiers_orphelins(), public.etat_emails()
   to authenticated;
+grant execute on function public.version_base(), public.signaler_erreur(text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------------------
 -- 10. STOCKAGE PRIVÉ DES JUSTIFICATIFS (PDF ou image, 5 Mo maximum)
@@ -1276,7 +1802,7 @@ on conflict (id) do nothing;
 
 drop policy if exists documents_conducteur_depot on storage.objects;
 create policy documents_conducteur_depot on storage.objects for insert to authenticated
-  with check (bucket_id = 'documents-conducteur' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (bucket_id = 'documents-conducteur' and (storage.foldername(name))[1] = auth.uid()::text and public.est_verifie());
 drop policy if exists documents_conducteur_lecture on storage.objects;
 create policy documents_conducteur_lecture on storage.objects for select to authenticated
   using (bucket_id = 'documents-conducteur' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_admin()));
@@ -1294,7 +1820,7 @@ on conflict (id) do nothing;
 
 drop policy if exists photos_depot on storage.objects;
 create policy photos_depot on storage.objects for insert to authenticated
-  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text and public.est_verifie());
 drop policy if exists photos_lecture on storage.objects;
 create policy photos_lecture on storage.objects for select to authenticated
   using (bucket_id = 'photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.est_verifie()));

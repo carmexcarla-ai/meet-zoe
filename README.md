@@ -67,24 +67,29 @@ where email = 'votre-adresse@exemple.fr';
 
 ### Confirmation de l'adresse e-mail
 
-Par défaut, l'e-mail d'inscription contient un **lien à cliquer**. C'est le
-réglage actuel (`codeParEmail: false` dans `config.js`).
+Le réglage actuel est le **code à 6 chiffres** : `codeParEmail: true` dans
+`config.js`. À l'inscription, la personne reçoit un e-mail avec un code, qu'elle
+saisit sur le site. Les e-mails partent par le service d'envoi Brevo, branché
+dans Supabase (SMTP personnalisé).
 
-Pour passer à un **code à 6 chiffres** à saisir sur le site, il faut d'abord
-brancher un service d'envoi d'e-mails : Supabase n'autorise la modification
-des modèles qu'avec un SMTP personnalisé.
+Ce réglage repose sur trois éléments, à garder ensemble :
 
 1. Supabase > **Authentification** > **Courriels** > **Configurer SMTP**, avec
-   les identifiants d'un service d'envoi et une adresse d'un nom de domaine
-   qui vous appartient.
+   les identifiants du service d'envoi (Brevo) et une adresse d'un nom de
+   domaine qui vous appartient.
 2. Modèle **Confirmer l'inscription** : objet `Votre code de confirmation
    Meet Zoe`, contenu de `supabase/emails/confirmation.html`.
-3. Dans `config.js`, passez `codeParEmail` à `true`.
+3. Dans `config.js`, `codeParEmail` à `true`.
+
+Avec `codeParEmail: false`, le site attend à la place un **lien à cliquer**
+dans l'e-mail (le modèle par défaut de Supabase). Ne changez ce réglage que si
+le modèle d'e-mail de Supabase est changé en même temps.
 
 ### 5. Mettre le site en ligne
 
-Le dossier `meet-zoe` peut être déposé tel quel chez un hébergeur de sites
-statiques (Netlify, Cloudflare Pages, GitHub Pages…). Une fois l'adresse
+Le site est hébergé sur [Render](https://render.com), en « site statique »
+(**Static Site**) : branche `main`, répertoire de publication (**Publish
+directory**) `.`, sans commande de construction. Une fois l'adresse
 connue, indiquez-la dans Supabase : **Authentication** > **URL Configuration**
 > **Site URL**, et ajoutez `https://votre-site/connexion.html` dans
 **Redirect URLs** (liens de confirmation et de mot de passe oublié).
@@ -97,9 +102,9 @@ limité à quelques e-mails par heure.
 
 | Page              | Pour qui              | Ce qu'on y fait                                                        |
 |-------------------|-----------------------|------------------------------------------------------------------------|
-| `index.html`      | Tout le monde         | Accueil : promesse, exemple, constat, fonctionnalités, étapes, questions |
+| `index.html`      | Tout le monde         | Accueil : promesse, étapes, exemple, accès vérifié, questions fréquentes |
 | `a-propos.html`   | Tout le monde         | Qui sommes-nous : origine du projet, ce que nous faisons, engagements   |
-| `etablissements.html` | Établissements    | Offre partenaires, formules, formulaire de contact                     |
+| `etablissements.html` | Établissements    | Offre partenaires, formulaire de contact                               |
 | `contact.html`    | Tout le monde         | Formulaire de contact ouvert à tous (profil, sujet, message)           |
 | `connexion.html`  | Tout le monde         | Connexion, création de compte, mot de passe oublié                     |
 | `espace.html`     | Membres               | Vérification du compte, recherche, trajets, réservations, messages, profil |
@@ -112,8 +117,8 @@ limité à quelques e-mails par heure.
 |-------------------------|-------------------------------------------------------------|
 | `config.js`             | Adresse et clé publique de votre projet Supabase            |
 | `styles.css`            | Apparence de toutes les pages (couleurs en haut du fichier) |
-| `app.js`                | Pages publiques : menu mobile                               |
-| `js/contact.js`         | Formulaire de contact des établissements                    |
+| `app.js`                | Pages publiques : menu mobile, année du pied de page        |
+| `js/contact.js`         | Formulaires de contact (page Contact et page Établissements) |
 | `js/commun.js`          | Outils partagés (connexion, affichage, communes)            |
 | `js/connexion.js`       | Connexion et inscription                                    |
 | `js/espace.js`          | Espace membre                                               |
@@ -124,6 +129,10 @@ limité à quelques e-mails par heure.
 | `vendor/supabase.js`    | Bibliothèque officielle Supabase (ne pas modifier)          |
 | `vendor/qrcode.js`      | Bibliothèque de QR codes, licence MIT (ne pas modifier)     |
 | `affiche.html`, `js/affiche.js` | Affiche A4 à imprimer pour un code d'accès          |
+| `images/`               | Icône du site et image d'aperçu pour les partages           |
+| `robots.txt`, `sitemap.xml` | Indications pour les moteurs de recherche               |
+| `outils/version.sh`     | Augmente le numéro de version `?v=…` dans toutes les pages  |
+| `tests/`                | Tests automatiques (voir `tests/README.md`)                 |
 
 ## Fonctionnement
 
@@ -167,7 +176,7 @@ avant de demander une place. L'onglet **Messages** regroupe toutes les
 conversations et signale les messages non lus. On ne peut écrire à quelqu'un
 qu'à partir d'un de ses trajets.
 
-**Matching.** La recherche se fait sur une période : jours de la semaine,
+**Recherche de trajets compatibles.** La recherche se fait sur une période : jours de la semaine,
 dates, heure de prise de poste, heure de fin de poste (facultative) et marge
 acceptée (30 minutes à 2 heures). Un trajet est proposé s'il va à la même
 destination, si le détour du conducteur reste dans la limite qu'il a fixée,
@@ -255,13 +264,36 @@ dans son message de demande de place.
 - Les partenaires ne voient que des totaux, aucune donnée individuelle.
 - Chaque membre peut supprimer son compte et ses données depuis son profil.
 
+## Mettre en ligne une nouvelle version
+
+La branche `main` est publiée automatiquement sur le site. À chaque nouvelle
+version, dans cet ordre :
+
+1. Recoller tout le contenu de `supabase/schema.sql` dans l'éditeur SQL de
+   Supabase (**SQL Editor** / **Éditeur SQL**), puis cliquer sur **Run** /
+   **Exécuter**. Le script peut être relancé sans perte de données. Si
+   `supabase/schema.sql` a changé, augmenter `version_base()` dans ce fichier
+   et `VERSION_BASE` dans `js/commun.js`.
+2. Lancer `sh outils/version.sh` : il augmente le numéro `?v=…` dans toutes
+   les pages. Sans cela, le navigateur des visiteurs peut garder les anciens
+   fichiers avec la nouvelle page, et des boutons cessent de fonctionner.
+3. Fusionner la branche de travail dans `main`.
+
+## Tests
+
+Les tests automatiques sont dans le dossier `tests/` : voir `tests/README.md`
+pour les lancer.
+
 ## Reste à faire avant l'ouverture au public
 
 - Mentions légales, conditions d'utilisation et politique de confidentialité
   (RGPD), à faire relire par un professionnel.
-- Envoi d'e-mails (SMTP) et nom de domaine.
-- Notifications par e-mail (nouvelle demande, nouveau message) : pour
-  l'instant, les non-lus s'affichent seulement une fois connecté.
+- Clé du service d'e-mails pour les alertes (voir « Alertes par e-mail »
+  ci-dessous) : tant qu'elle n'est pas enregistrée, les alertes s'affichent
+  seulement sur le site.
+- Double authentification sur Supabase, GitHub, Render, OVH et Brevo ;
+  sauvegardes de la base.
+- Boîte de contact et e-mail « mot de passe oublié » en français.
 - Paiement en ligne des abonnements, si souhaité.
 - Application mobile.
 
@@ -274,3 +306,24 @@ dans son message de demande de place.
 | Lavande            | `#EEE7FF` |
 | Blanc              | `#FAF9FD` |
 | Vert de confiance  | `#24A68A` |
+
+## Alertes par e-mail
+
+Chaque événement important (demande de place, réponse, message, compte ou
+conducteur validé ou refusé, trajet modifié, mis en pause ou supprimé, dossier
+à contrôler pour l'administration) crée une alerte dans l'espace du membre.
+La base envoie aussi un e-mail court par le service Brevo, **si** une clé est
+enregistrée. La clé se crée dans Brevo (**SMTP et API** > **Clés API** >
+**Générer une nouvelle clé API**), puis s'enregistre une seule fois dans
+l'éditeur SQL de Supabase :
+
+```sql
+insert into public.reglages_prives (nom, valeur) values ('brevo_cle', 'COLLER-LA-CLE-ICI')
+on conflict (nom) do update set valeur = excluded.valeur;
+```
+
+Cette clé n'est lisible par aucun visiteur ni aucun membre, et ne doit jamais
+être écrite dans un fichier du site ni envoyée par message. Pour arrêter les
+e-mails : `delete from public.reglages_prives where nom = 'brevo_cle';`.
+Les e-mails ne contiennent jamais le contenu des messages échangés, et chaque
+membre peut les couper depuis son profil.

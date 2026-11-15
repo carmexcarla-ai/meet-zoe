@@ -21,6 +21,23 @@
     $('#lien-admin').hidden = moi.role !== 'admin';
   }
 
+  /* ---------- Suppression du compte (possible à tout moment, même avant la vérification) ---------- */
+  $$('[data-supprimer-compte]').forEach((bouton) => bouton.addEventListener('click', async () => {
+    const ok = await Zoe.demander({
+      titre: 'Supprimer définitivement votre compte ?',
+      texte: 'Votre profil, vos trajets, vos réservations, vos messages et vos fichiers seront effacés. Cette action ne peut pas être annulée.',
+      valider: 'Supprimer mon compte', danger: true,
+    });
+    if (!ok) return;
+    occupe(bouton, async () => {
+      // Les fichiers sont effacés d'abord ; la base refuse la suppression s'il en reste un.
+      for (const espace of ['justificatifs', 'documents-conducteur', 'photos']) await Zoe.viderDossier(espace, moi.id);
+      await req(sb.rpc('supprimer_mon_compte'));
+      await sb.auth.signOut();
+      location.href = 'index.html';
+    });
+  }));
+
   /* ---------- 1. Vérification du compte ---------- */
   if (moi.statut !== 'verifie') {
     $('#verification').hidden = false;
@@ -28,20 +45,22 @@
     if (moi.statut === 'suspendu') {
       etat.hidden = false;
       etat.classList.add('alerte--err');
-      etat.textContent = 'Votre compte est suspendu. Contactez l\'équipe Meet Zoe pour en savoir plus.';
+      etat.textContent = `Votre compte est suspendu.${moi.motif_refus ? ` Motif : ${moi.motif_refus}.` : ''} Pour en savoir plus, écrivez-nous depuis la page Contact.`;
       $('#methodes').hidden = true;
     } else if (moi.statut === 'refuse') {
       etat.hidden = false;
       etat.classList.add('alerte--err');
-      etat.textContent = 'Votre justificatif n\'a pas pu être accepté. Vous pouvez en envoyer un autre, ou utiliser un code.';
+      etat.textContent = `Votre justificatif n'a pas été accepté.${moi.motif_refus ? ` Motif : ${moi.motif_refus}.` : ''} Vous pouvez en envoyer un autre, ou utiliser un code.`;
     } else if (moi.justificatif_path) {
       etat.hidden = false;
-      etat.textContent = 'Votre justificatif a bien été reçu. Il est en cours d\'examen : vous aurez accès à la plateforme dès sa validation.';
+      etat.textContent = 'Votre justificatif a bien été reçu. Notre équipe le contrôle à la main : vous recevrez un e-mail dès que c\'est fait. Vous pouvez fermer cette page.';
     }
 
     // Code ou invitation retenu depuis un lien ou un QR code : on l'applique tout seul.
     let acces = null;
-    try { acces = JSON.parse(localStorage.getItem('zoe.acces') || 'null'); localStorage.removeItem('zoe.acces'); } catch { /* sans gravité */ }
+    // Il n'est oublié qu'une fois appliqué (ou refusé pour de bon) : une coupure ne le fait pas perdre.
+    const oublierAcces = () => { try { localStorage.removeItem('zoe.acces'); } catch { /* sans gravité */ } };
+    try { acces = JSON.parse(localStorage.getItem('zoe.acces') || 'null'); } catch { /* sans gravité */ }
     if (acces && moi.statut !== 'suspendu') {
       const formulaire = acces.type === 'code' ? $('#form-code') : $('#form-invitation');
       formulaire.code.value = acces.code;
@@ -52,6 +71,7 @@
       e.preventDefault();
       occupe(e.submitter, async () => {
         const reponse = await req(sb.rpc('utiliser_code', { p_code: e.target.code.value }));
+        oublierAcces();
         if (!reponse.ok) throw new Error(reponse.message);
         toast(`Bienvenue ! Vous êtes rattaché(e) à ${reponse.etablissement}.`);
         setTimeout(() => location.reload(), 900);
@@ -62,6 +82,7 @@
       e.preventDefault();
       occupe(e.submitter, async () => {
         const reponse = await req(sb.rpc('utiliser_invitation', { p_code: e.target.code.value }));
+        oublierAcces();
         if (!reponse.ok) throw new Error(reponse.message);
         toast('Bienvenue dans la communauté !');
         setTimeout(() => location.reload(), 900);
@@ -83,7 +104,7 @@
         const ancien = moi.justificatif_path;
         await req(sb.rpc('soumettre_justificatif', { p_path: chemin }));
         if (ancien) await sb.storage.from('justificatifs').remove([ancien]);
-        toast('Justificatif envoyé. Notre équipe l\'examine.');
+        toast('Justificatif envoyé. Vous recevrez un e-mail dès qu\'il sera contrôlé.');
         setTimeout(() => location.reload(), 900);
       });
     });
@@ -93,7 +114,76 @@
   /* ---------- Espace vérifié ---------- */
   $('#espace').hidden = false;
   const chargeurs = { trajets: chargerMesTrajets, reservations: chargerMesReservations, messages: chargerConversations, profil: chargerProfil };
-  const montrer = Zoe.onglets($('#onglets'), (nom) => chargeurs[nom] && chargeurs[nom]());
+  const montrer = Zoe.onglets($('#onglets'), (nom) => {
+    if (chargeurs[nom]) chargeurs[nom]();
+    lireAlertes(nom);
+  });
+
+  /* ---------- Alertes : ce qui s'est passé depuis la dernière visite ---------- */
+  const ONGLET_ALERTE = { recherche: 'rechercher', proposer: 'proposer', trajets: 'trajets', reservations: 'reservations', messages: 'messages', admin: 'rechercher' };
+  let alertes = [];
+  const fenetreAlertes = $('#alertes');
+  async function chargerAlertes() {
+    const { data, error } = await sb.from('notifications').select('*').order('created_at', { ascending: false }).limit(30);
+    if (error) return;   // base pas encore à jour : l'espace fonctionne sans les alertes
+    alertes = data || [];
+    $('#cloche').hidden = false;
+    const nonLues = alertes.filter((a) => !a.lu);
+    const pc = $('#pastille-cloche');
+    pc.hidden = nonLues.length === 0;
+    pc.textContent = nonLues.length;
+    $('#cloche').setAttribute('aria-label', nonLues.length ? `Mes alertes, ${nonLues.length} non lue${nonLues.length > 1 ? 's' : ''}` : 'Mes alertes');
+    for (const onglet of ['trajets', 'reservations']) {
+      const n = nonLues.filter((a) => a.onglet === onglet).length;
+      const pastille = $(`#pastille-${onglet}`);
+      // Une alerte qui arrive pendant que l'onglet est ouvert : la liste se met à jour toute seule.
+      if (n > 0 && !$(`[data-panneau="${onglet}"]`).hidden) {
+        chargeurs[onglet]();
+        sb.rpc('marquer_notifications', { p_onglet: onglet }).then(() => {}, () => {});
+        pastille.hidden = true;
+        continue;
+      }
+      pastille.hidden = n === 0;
+      pastille.textContent = n;
+    }
+    if (fenetreAlertes.open) dessinerAlertes();
+  }
+  // Ouvrir un onglet marque ses alertes comme lues (les messages le sont à la lecture de la conversation).
+  async function lireAlertes(nomOnglet) {
+    const cle = Object.keys(ONGLET_ALERTE).find((k) => ONGLET_ALERTE[k] === nomOnglet && k !== 'admin');
+    if (!cle || cle === 'messages') return;
+    await sb.rpc('marquer_notifications', { p_onglet: cle });
+    chargerAlertes();
+  }
+  function dessinerAlertes() {
+    $('#alertes-liste').innerHTML = alertes.length
+      ? html`${alertes.map((a) => html`
+          <button class="alerte-ligne ${a.lu ? '' : 'alerte-ligne--nonlue'}" type="button" data-onglet-alerte="${a.type === 'admin' ? 'admin' : a.onglet}">
+            <strong>${a.lu ? '' : html`<span class="sr-only">Nouveau : </span>`}${a.titre}</strong>
+            ${a.texte ? html`<span>${a.texte}</span>` : ''}
+            <small>${Zoe.dateHeure(a.created_at)}</small>
+          </button>`)}`
+      : html`<p class="aide alertes__vide">Aucune alerte pour le moment. Vous serez prévenu(e) ici, et par e-mail, dès qu'il se passe quelque chose : une demande de place, une réponse, un message.</p>`;
+  }
+  $('#cloche').addEventListener('click', () => { dessinerAlertes(); fenetreAlertes.showModal(); });
+  $('#alertes-fermer').addEventListener('click', () => fenetreAlertes.close());
+  fenetreAlertes.addEventListener('close', async () => {
+    if (!alertes.some((a) => !a.lu && a.type !== 'message')) return;
+    // Les alertes vues dans la liste sont lues, sauf les messages (lus en ouvrant la conversation).
+    for (const cle of ['recherche', 'proposer', 'trajets', 'reservations', 'admin']) {
+      if (alertes.some((a) => !a.lu && a.onglet === cle)) await sb.rpc('marquer_notifications', { p_onglet: cle });
+    }
+    chargerAlertes();
+  });
+  $('#alertes-liste').addEventListener('click', (e) => {
+    const ligne = e.target.closest('[data-onglet-alerte]');
+    if (!ligne) return;
+    const cible = ligne.dataset.ongletAlerte;
+    fenetreAlertes.close();
+    if (cible === 'admin') { location.href = 'admin.html'; return; }
+    montrer(ONGLET_ALERTE[cible] || 'rechercher');
+  });
+  chargerAlertes();
 
   // Fiche d'un membre telle que les autres la voient.
   const membresParId = async (ids) => {
@@ -103,6 +193,8 @@
     return Object.fromEntries(liste.map((m) => [m.id, m]));
   };
   const nomMembre = (m) => (m ? `${m.prenom} ${m.initiale}.` : 'Membre');
+  // Un établissement confirmé par un code est affiché tel quel ; sinon on précise qu'il est seulement déclaré.
+  const etablissementAffiche = (m) => (!m.etablissement ? '' : m.etablissement_verifie ? ` · ${m.etablissement}` : ` · ${m.etablissement} (déclaré par le membre)`);
   const badgeReservation = (statut) => html`<span class="badge badge--${statut}">${Zoe.RESERVATIONS[statut]}</span>`;
   const resumeTrajet = (t) => html`
     <strong>${t.depart_ville} → ${t.destination_nom}</strong>
@@ -269,7 +361,7 @@
 
     if (!trajets.length) {
       zone.innerHTML = html`<div class="empty"><strong>Aucun trajet compatible pour le moment.</strong>
-        <p>Enregistrez votre recherche : vous serez prévenu(e) ici dès qu'un conducteur proposera un trajet qui convient, et les conducteurs verront qu'il est demandé.</p>
+        <p>Enregistrez votre recherche : vous serez prévenu(e) par e-mail et sur le site dès qu'un conducteur proposera un trajet qui convient, et les conducteurs verront qu'il est demandé.</p>
         <p><button class="btn btn--primary" type="button" data-action="enregistrer">Enregistrer cette recherche</button></p></div>`;
       return;
     }
@@ -297,16 +389,17 @@
         <p><b>${trajets.length} trajet${trajets.length > 1 ? 's' : ''} trouvé${trajets.length > 1 ? 's' : ''}</b> pour ${resumeBesoin(besoin)}</p>
         ${enregistrer}
       </div>
+      <p class="aide">Le pourcentage indique à quel point un trajet vous convient : peu de détour, bons horaires, jours en commun. Les frais d'essence se partagent directement entre vous.</p>
       ${trajets.map((t) => html`
       <article class="result" data-trajet="${t.id}">
-        <div class="result__score" style="--p:${Math.max(0, t.score)}" aria-label="Compatibilité ${t.score} %">${Math.max(0, t.score)}%</div>
+        <div class="result__score" style="--p:${Math.max(0, t.score)}" title="Plus le chiffre est haut, mieux ce trajet vous convient : détour, horaires et jours en commun." aria-label="Ce trajet vous convient à ${Math.max(0, t.score)} %">${Math.max(0, t.score)} %</div>
         <div class="result__main">
           <div class="result__qui">
             ${Zoe.avatar(t.prenom, t.initiale, urls[t.photo_path])}
             <div>
               <button class="lien-nom" type="button" data-fiche="${t.conducteur_id}">${t.prenom} ${t.initiale}.</button>
               <span class="badge badge--ok">Permis contrôlé</span> ${Zoe.etoiles(t.note_moyenne, t.nb_avis)}
-              <p>${Zoe.CATEGORIES[t.categorie]}${t.etablissement ? ` · ${t.etablissement}` : ''}</p>
+              <p>${Zoe.CATEGORIES[t.categorie]}${etablissementAffiche(t)}</p>
             </div>
           </div>
           <p class="result__phrase">${enClair(t)}</p>
@@ -387,10 +480,8 @@
       } else if (action === 'relancer') {
         // Période passée : la recherche repart d'aujourd'hui, pour la même durée.
         const jours = Math.round((new Date(besoin.date_fin) - new Date(besoin.date_debut)) / 86400000);
-        const { id, nb_trajets, nb_nouveaux, ...champs } = besoin;
-        const neuf = { ...champs, date_debut: Zoe.aujourdhui(), date_fin: dansJours(jours) };
-        await req(sb.from('besoins').delete().eq('id', besoin.id));
-        await req(sb.from('besoins').insert({ membre_id: moi.id, ...neuf }));
+        const neuf = { ...besoin, date_debut: Zoe.aujourdhui(), date_fin: dansJours(jours) };
+        await req(sb.from('besoins').update({ date_debut: neuf.date_debut, date_fin: neuf.date_fin, vu_le: new Date().toISOString() }).eq('id', besoin.id));
         remplirRecherche(neuf);
         await rechercher();
         toast('Recherche relancée à partir d\'aujourd\'hui.');
@@ -412,7 +503,7 @@
       occupe(bouton, async () => {
         if (besoins.length >= 10) throw new Error('Vous avez déjà 10 recherches enregistrées. Supprimez-en une.');
         await req(sb.from('besoins').insert({ membre_id: moi.id, ...pourEnregistrer(derniereRecherche) }));
-        toast('Recherche enregistrée. Vous serez prévenu(e) ici des nouveaux trajets.');
+        toast('Recherche enregistrée. Vous serez prévenu(e) par e-mail des nouveaux trajets.');
         await chargerBesoins();
       });
       return;
@@ -490,8 +581,8 @@
     etat.hidden = !enAttente && moi.conducteur_statut !== 'refuse';
     etat.classList.toggle('alerte--err', moi.conducteur_statut === 'refuse');
     etat.textContent = enAttente
-      ? 'Vos documents ont bien été reçus. Ils sont en cours de contrôle : vous pourrez proposer un trajet dès leur validation.'
-      : 'Vos documents n\'ont pas pu être acceptés. Vous pouvez en envoyer de nouveaux.';
+      ? 'Vos documents ont bien été reçus. Notre équipe les contrôle à la main : vous recevrez un e-mail dès que c\'est fait, et vous pourrez alors proposer un trajet.'
+      : `Vos documents n'ont pas été acceptés.${moi.conducteur_motif ? ` Motif : ${moi.conducteur_motif}.` : ''} Vous pouvez en envoyer de nouveaux.`;
   }
   afficherEtatConducteur();
 
@@ -516,9 +607,47 @@
       moi = await req(sb.from('profils').select('*').eq('id', moi.id).single());
       f.reset();
       afficherEtatConducteur();
-      toast('Documents envoyés. Notre équipe les contrôle.');
+      toast('Documents envoyés. Vous recevrez un e-mail dès qu\'ils seront contrôlés.');
     });
   });
+
+  // Le même formulaire sert à publier un nouveau trajet ou à en modifier un.
+  let trajetModifie = null;
+  function modeTrajet(id) {
+    trajetModifie = id;
+    $('#titre-proposer').textContent = id ? 'Modifier mon trajet' : 'Proposer un trajet';
+    $('#publier-trajet').textContent = id ? 'Enregistrer les changements' : 'Publier le trajet';
+    $('#annuler-modif').hidden = !id;
+    const info = $('#modif-trajet');
+    info.hidden = !id;
+    info.textContent = id ? 'Vous modifiez un trajet déjà publié. Si vous changez les jours, les horaires ou les lieux, les passagers qui ont une demande ou une place seront prévenus.' : '';
+  }
+  function viderFormTrajet() {
+    formTrajet.reset();
+    tRaccourcis.duree('28');
+    tRaccourcis.synchro();
+    for (const champ of [tDepart, tDestination]) { champ.value = ''; delete champ.dataset.lat; delete champ.dataset.lng; delete champ.dataset.ville; }
+    modeTrajet(null);
+  }
+  let debutOrigine = null;   // date de début d'un trajet déjà commencé, à conserver
+  function remplirFormTrajet(t) {
+    debutOrigine = t.date_debut;
+    tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng; tDepart.dataset.ville = t.depart_ville;
+    tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng; tDestination.dataset.ville = t.destination_ville;
+    formTrajet.destination_nom.value = t.destination_nom;
+    tRaccourcis.duree('dates');
+    formTrajet.date_debut.value = t.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : t.date_debut;
+    formTrajet.date_fin.value = t.date_fin < formTrajet.date_debut.value ? formTrajet.date_debut.value : t.date_fin;
+    $$('[name=jours]', formTrajet).forEach((c) => { c.checked = t.jours.includes(Number(c.value)); });
+    formTrajet.heure_depart.value = Zoe.heure(t.heure_depart);
+    formTrajet.heure_arrivee.value = Zoe.heure(t.heure_arrivee);
+    formTrajet.heure_retour.value = Zoe.heure(t.heure_retour);
+    formTrajet.places.value = t.places;
+    formTrajet.detour_max_km.value = t.detour_max_km;
+    formTrajet.commentaire.value = t.commentaire || '';
+    tRaccourcis.synchro();
+  }
+  $('#annuler-modif').addEventListener('click', () => { viderFormTrajet(); montrer('trajets'); });
 
   formTrajet.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -529,8 +658,13 @@
       if (!jours.length) throw new Error('Cochez au moins un jour.');
       if (formTrajet.date_fin.value < formTrajet.date_debut.value) throw new Error('La date « Au » doit être le même jour que la date « Du », ou après.');
 
-      await req(sb.from('trajets').insert({
-        conducteur_id: moi.id,
+      // Un départ après l'arrivée n'a de sens que pour un poste de nuit (arrivée après minuit).
+      const hd = formTrajet.heure_depart.value;
+      const ha = formTrajet.heure_arrivee.value;
+      if (hd && ha && hd >= ha && !(hd >= '18:00' && ha <= '09:00')) {
+        throw new Error('Vérifiez vos horaires : l\'heure de départ de chez vous doit être avant l\'heure d\'arrivée sur place.');
+      }
+      const champs = {
         depart_ville: depart.ville, depart_lat: arrondi(depart.lat, 2), depart_lng: arrondi(depart.lng, 2),
         destination_nom: formTrajet.destination_nom.value.trim(),
         destination_ville: destination.ville, dest_lat: destination.lat, dest_lng: destination.lng,
@@ -543,12 +677,17 @@
         places: Number(formTrajet.places.value),
         detour_max_km: Number(formTrajet.detour_max_km.value),
         commentaire: formTrajet.commentaire.value.trim() || null,
-      }));
-      toast('Trajet publié.');
-      formTrajet.reset();
-      tRaccourcis.duree('28');
-      tRaccourcis.synchro();
-      for (const champ of [tDepart, tDestination]) { champ.value = ''; delete champ.dataset.lat; delete champ.dataset.lng; }
+      };
+      if (trajetModifie) {
+        // Trajet déjà commencé : sa vraie date de début est gardée (le formulaire affiche aujourd'hui).
+        if (debutOrigine && debutOrigine < Zoe.aujourdhui() && champs.date_debut === Zoe.aujourdhui()) delete champs.date_debut;
+        await req(sb.from('trajets').update(champs).eq('id', trajetModifie));
+        toast('Trajet modifié. Vos passagers sont prévenus si les jours, les horaires ou les lieux ont changé.');
+      } else {
+        await req(sb.from('trajets').insert({ conducteur_id: moi.id, ...champs }));
+        toast('Trajet publié.');
+      }
+      viderFormTrajet();
       montrer('trajets');
     });
   });
@@ -565,18 +704,24 @@
       const reservations = await req(sb.from('reservations').select('*').in('trajet_id', trajets.map((t) => t.id)).order('created_at'));
       const membres = await membresParId(reservations.map((r) => r.passager_id));
 
+      // Les trajets en cours d'abord, les trajets terminés ensuite.
+      const fini = (t) => t.date_fin < Zoe.aujourdhui();
+      trajets.sort((x, y) => fini(x) - fini(y));
       zone.innerHTML = html`${trajets.map((t) => {
         const demandes = reservations.filter((r) => r.trajet_id === t.id && !['annulee', 'contact'].includes(r.statut));
         const prises = demandes.filter((r) => r.statut === 'acceptee').length;
+        const enAttente = demandes.filter((r) => r.statut === 'demandee').length;
         return html`
-        <article class="element" data-trajet="${t.id}">
+        <article class="element ${fini(t) ? 'element--fini' : ''}" data-trajet="${t.id}" data-passagers="${prises + enAttente}">
           <div class="element__tete">
             <div>${resumeTrajet(t)}</div>
             <div class="element__actions">
               <span class="seats">Places : ${prises}/${t.places}</span>
-              ${t.actif ? '' : html`<span class="badge badge--annulee">En pause</span>`}
-              <button class="lien" type="button" data-action="dupliquer">Dupliquer</button>
-              <button class="lien" type="button" data-action="pause">${t.actif ? 'Mettre en pause' : 'Réactiver'}</button>
+              ${fini(t) ? html`<span class="badge badge--annulee">Terminé</span>` : t.actif ? '' : html`<span class="badge badge--annulee">En pause</span>`}
+              ${enAttente ? html`<span class="badge badge--demandee">${enAttente} demande${enAttente > 1 ? 's' : ''} à traiter</span>` : ''}
+              ${fini(t) ? '' : html`<button class="lien" type="button" data-action="modifier">Modifier</button>`}
+              <button class="lien" type="button" data-action="dupliquer">${fini(t) ? 'Proposer à nouveau' : 'Dupliquer'}</button>
+              ${fini(t) ? '' : html`<button class="lien" type="button" data-action="pause">${t.actif ? 'Mettre en pause' : 'Réactiver'}</button>`}
               <button class="lien lien--danger" type="button" data-action="supprimer">Supprimer</button>
             </div>
           </div>
@@ -590,57 +735,73 @@
               ${badgeReservation(r.statut)}
               <div class="element__actions">
                 ${r.statut !== 'acceptee' ? html`<button class="btn btn--green btn--sm" type="button" data-action="accepter">Accepter</button>` : ''}
-                ${r.statut !== 'refusee' ? html`<button class="lien lien--danger" type="button" data-action="refuser">Refuser</button>` : ''}
+                ${r.statut !== 'refusee' ? html`<button class="lien lien--danger" type="button" data-action="refuser">${r.statut === 'acceptee' ? 'Retirer ce passager' : 'Refuser'}</button>` : ''}
                 <button class="lien" type="button" data-action="messages">Messages</button>
               </div>
-            </li>`)}</ul>` : html`<p class="aide">Aucune demande pour l'instant.</p>`}
+            </li>`)}</ul>` : html`<p class="aide">Aucune demande pour l'instant. Vous serez prévenu(e) par e-mail dès qu'un membre demandera une place.</p>`}
         </article>`;
       })}`;
       zone._trajets = Object.fromEntries(trajets.map((t) => [t.id, t]));
     } catch (e) { Zoe.erreur(e); }
   }
 
-  $('#mes-trajets').addEventListener('click', (e) => {
+  const MOTIFS_REFUS = ['Plus de place disponible', 'Horaires qui ne conviennent pas', 'Trop de détour', 'Je ne fais plus ce trajet', 'Autre raison'];
+  $('#mes-trajets').addEventListener('click', async (e) => {
     const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
-    const idTrajet = bouton.closest('[data-trajet]').dataset.trajet;
+    const carte = bouton.closest('[data-trajet]');
+    const idTrajet = carte.dataset.trajet;
     const ligne = bouton.closest('[data-reservation]');
     const action = bouton.dataset.action;
+    const trajet = $('#mes-trajets')._trajets[idTrajet];
 
     if (action === 'messages') { ouvrirFil(ligne.dataset.reservation, ligne.dataset.nom, ligne.dataset.statut); return; }
-    if (action === 'dupliquer') {
-      // Reprend le trajet dans le formulaire : il ne reste qu'à changer les jours ou les heures.
-      const t = $('#mes-trajets')._trajets[idTrajet];
-      tDepart.value = t.depart_ville; tDepart.dataset.lat = t.depart_lat; tDepart.dataset.lng = t.depart_lng; tDepart.dataset.ville = t.depart_ville;
-      tDestination.value = t.destination_ville; tDestination.dataset.lat = t.dest_lat; tDestination.dataset.lng = t.dest_lng; tDestination.dataset.ville = t.destination_ville;
-      formTrajet.destination_nom.value = t.destination_nom;
-      tRaccourcis.duree('dates');
-      formTrajet.date_debut.value = t.date_debut < Zoe.aujourdhui() ? Zoe.aujourdhui() : t.date_debut;
-      formTrajet.date_fin.value = t.date_fin < formTrajet.date_debut.value ? formTrajet.date_debut.value : t.date_fin;
-      $$('[name=jours]', formTrajet).forEach((c) => { c.checked = t.jours.includes(Number(c.value)); });
-      formTrajet.heure_depart.value = Zoe.heure(t.heure_depart);
-      formTrajet.heure_arrivee.value = Zoe.heure(t.heure_arrivee);
-      formTrajet.heure_retour.value = Zoe.heure(t.heure_retour);
-      formTrajet.places.value = t.places;
-      formTrajet.detour_max_km.value = t.detour_max_km;
-      formTrajet.commentaire.value = t.commentaire || '';
-      tRaccourcis.synchro();
+    if (action === 'dupliquer' || action === 'modifier') {
+      remplirFormTrajet(trajet);
+      modeTrajet(action === 'modifier' ? idTrajet : null);
       montrer('proposer');
-      toast('Trajet copié : modifiez les jours ou les horaires, puis publiez.');
+      formTrajet.scrollIntoView({ block: 'start' });
+      if (action === 'dupliquer' && trajet.date_fin < Zoe.aujourdhui()) {
+        tRaccourcis.duree('28');
+        toast('Trajet copié pour les 4 prochaines semaines : vérifiez les dates, les jours et les horaires, puis publiez.');
+      } else if (action === 'dupliquer') toast('Trajet copié : modifiez les jours ou les horaires, puis publiez.');
       return;
     }
-    if (action === 'supprimer' && !confirm('Supprimer ce trajet ? Les réservations liées seront annulées.')) return;
+
+    let motif = null;
+    if (action === 'supprimer') {
+      const n = Number(carte.dataset.passagers);
+      const ok = await Zoe.demander({
+        titre: 'Supprimer ce trajet ?',
+        texte: n
+          ? `${n} membre${n > 1 ? 's ont' : ' a'} une demande ou une place sur ce trajet. En le supprimant, vous effacez aussi ces demandes et vos messages ; ${n > 1 ? 'ils seront prévenus' : 'il sera prévenu'}. Si vous vous arrêtez seulement quelque temps, choisissez plutôt « Mettre en pause ».`
+          : 'Ce trajet et les messages qui s\'y rapportent seront effacés.',
+        valider: 'Supprimer le trajet', danger: true,
+      });
+      if (!ok) return;
+    }
+    if (action === 'refuser') {
+      const retrait = ligne.dataset.statut === 'acceptee';
+      const reponse = await Zoe.demander({
+        titre: retrait ? `Retirer ${ligne.dataset.nom} de ce trajet ?` : `Refuser la demande de ${ligne.dataset.nom} ?`,
+        texte: 'Cette personne sera prévenue, avec le motif que vous choisissez. Elle ne pourra plus vous écrire au sujet de ce trajet.',
+        choix: MOTIFS_REFUS, valider: retrait ? 'Retirer ce passager' : 'Refuser la demande', danger: true,
+      });
+      if (!reponse) return;
+      motif = reponse.choix;
+    }
 
     occupe(bouton, async () => {
       if (action === 'pause') {
-        const trajet = $('#mes-trajets')._trajets[idTrajet];
         await req(sb.from('trajets').update({ actif: !trajet.actif }).eq('id', idTrajet));
+        toast(trajet.actif ? 'Trajet mis en pause. Vos passagers sont prévenus.' : 'Trajet réactivé.');
       } else if (action === 'supprimer') {
         await req(sb.from('trajets').delete().eq('id', idTrajet));
+        if (trajetModifie === idTrajet) viderFormTrajet();
         toast('Trajet supprimé.');
       } else {
-        await req(sb.rpc('repondre_reservation', { p_reservation: ligne.dataset.reservation, p_accepter: action === 'accepter' }));
-        toast(action === 'accepter' ? 'Demande acceptée.' : 'Demande refusée.');
+        await req(sb.rpc('repondre_reservation', { p_reservation: ligne.dataset.reservation, p_accepter: action === 'accepter', p_motif: motif }));
+        toast(action === 'accepter' ? 'Demande acceptée. Le passager est prévenu.' : 'C\'est noté. La personne est prévenue.');
       }
       await chargerMesTrajets();
     });
@@ -662,21 +823,26 @@
       const mesAvis = Object.fromEntries(avisDonnes.map((a) => [a.reservation_id, a]));
       zone._avis = mesAvis;
 
+      reservations.sort((x, y) => (parId[x.trajet_id] && parId[x.trajet_id].date_fin < Zoe.aujourdhui() ? 1 : 0) - (parId[y.trajet_id] && parId[y.trajet_id].date_fin < Zoe.aujourdhui() ? 1 : 0));
       zone.innerHTML = html`${reservations.filter((r) => parId[r.trajet_id]).map((r) => {
         const t = parId[r.trajet_id];
         const conducteur = nomMembre(membres[t.conducteur_id]);
+        const fini = t.date_fin < Zoe.aujourdhui();
         return html`
-        <article class="element" data-reservation="${r.id}" data-nom="${conducteur}" data-statut="${r.statut}">
+        <article class="element ${fini ? 'element--fini' : ''}" data-reservation="${r.id}" data-nom="${conducteur}" data-statut="${r.statut}">
           <div class="element__tete">
             <div>
               ${resumeTrajet(t)}
               <p>Conducteur : <button class="lien-nom" type="button" data-fiche="${t.conducteur_id}">${conducteur}</button></p>
+              ${r.statut === 'refusee' && r.motif_refus ? html`<p class="aide">Motif indiqué par le conducteur : ${r.motif_refus}.</p>` : ''}
+              ${!t.actif && !fini && ['demandee', 'acceptee'].includes(r.statut) ? html`<p class="aide">Ce trajet est en pause : il n'est pas assuré pour le moment. Vous pouvez écrire au conducteur pour en savoir plus.</p>` : ''}
             </div>
             <div class="element__actions">
               ${badgeReservation(r.statut)}
+              ${fini ? html`<span class="badge badge--annulee">Terminé</span>` : !t.actif ? html`<span class="badge badge--annulee">En pause</span>` : ''}
               <button class="lien" type="button" data-action="messages">Messages</button>
               ${r.statut === 'acceptee' && t.date_debut <= Zoe.aujourdhui() ? html`<button class="lien" type="button" data-action="avis">${mesAvis[r.id] ? 'Modifier mon avis' : 'Laisser un avis'}</button>` : ''}
-              ${['demandee', 'acceptee'].includes(r.statut) ? html`<button class="lien lien--danger" type="button" data-action="annuler">Annuler</button>` : ''}
+              ${['demandee', 'acceptee'].includes(r.statut) && !fini ? html`<button class="lien lien--danger" type="button" data-action="annuler">${r.statut === 'acceptee' ? 'Annuler ma place' : 'Annuler ma demande'}</button>` : ''}
             </div>
           </div>
           <form class="form-avis" hidden>
@@ -699,7 +865,7 @@
     } catch (e) { Zoe.erreur(e); }
   }
 
-  $('#mes-reservations').addEventListener('click', (e) => {
+  $('#mes-reservations').addEventListener('click', async (e) => {
     const bouton = e.target.closest('[data-action]');
     if (!bouton) return;
     const carte = bouton.closest('[data-reservation]');
@@ -711,10 +877,15 @@
       formulaire.hidden = !formulaire.hidden;
       return;
     }
-    if (!confirm('Annuler cette réservation ?')) return;
+    const ok = await Zoe.demander({
+      titre: carte.dataset.statut === 'acceptee' ? 'Annuler votre place ?' : 'Annuler votre demande ?',
+      texte: `${carte.dataset.nom} sera prévenu(e).${carte.dataset.statut === 'acceptee' ? ' Si vous voulez lui expliquer pourquoi, écrivez-lui avant d\'annuler : ensuite, vous ne pourrez plus lui envoyer de message.' : ''}`,
+      valider: 'Oui, annuler', danger: true,
+    });
+    if (!ok) return;
     occupe(bouton, async () => {
       await req(sb.rpc('annuler_reservation', { p_reservation: carte.dataset.reservation }));
-      toast('Réservation annulée.');
+      toast('C\'est annulé. Le conducteur est prévenu.');
       await chargerMesReservations();
     });
   });
@@ -728,6 +899,9 @@
     if (!filReservation) return;
     const messages = await req(sb.from('messages').select('*').eq('reservation_id', filReservation).order('created_at'));
     const zone = $('#fil-messages');
+    const empreinte = `${filReservation}:${messages.length}`;
+    if (zone.dataset.empreinte === empreinte) return;   // rien de nouveau : on ne touche pas à l'écran
+    zone.dataset.empreinte = empreinte;
     zone.innerHTML = messages.length
       ? html`${messages.map((m) => html`
           <div class="bulle ${m.expediteur_id === moi.id ? 'bulle--moi' : ''}">
@@ -785,10 +959,12 @@
     filReservation = reservation;
     $('#fil-titre').textContent = `Messages avec ${nom}`;
     $('#fil-messages').innerHTML = '';
+    delete $('#fil-messages').dataset.empreinte;
     fil.showModal();
     chargerFil().catch(Zoe.erreur);
     // Rafraîchit la conversation toutes les 8 secondes tant qu'elle est ouverte.
-    filMinuteur = setInterval(() => chargerFil().catch(() => {}), 8000);
+    clearInterval(filMinuteur);
+    filMinuteur = setInterval(() => { if (!document.hidden) chargerFil().catch(() => {}); }, 8000);
   }
 
   fil.addEventListener('close', () => {
@@ -796,9 +972,13 @@
     filReservation = null;
     // À la fermeture, la liste et la pastille reflètent ce qui vient d'être lu.
     if (!$('[data-panneau="messages"]').hidden) chargerConversations(); else majPastille();
+    chargerAlertes();
   });
   majPastille();
-  setInterval(majPastille, 30000);
+  // Toutes les 30 secondes, et dès que l'on revient sur l'onglet : messages et alertes.
+  const rafraichir = () => { if (!document.hidden) { majPastille(); chargerAlertes(); } };
+  setInterval(rafraichir, 30000);
+  document.addEventListener('visibilitychange', rafraichir);
   $('#fil-fermer').addEventListener('click', () => fil.close());
   $('#fil-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -814,13 +994,22 @@
 
   /* ---------- 7. Profil ---------- */
   const formProfil = $('#form-profil');
+  // Nom contrôlé avec le justificatif ou la pièce d'identité : il ne se change plus ici.
+  const nomVerrouille = () => ['en_attente', 'valide'].includes(moi.conducteur_statut) || moi.methode_verif === 'justificatif';
 
   async function chargerProfil() {
     afficherPhoto();
     afficherMesAvis();
-    for (const champ of ['prenom', 'nom', 'ville', 'telephone', 'etablissement_declare', 'vehicule', 'bio']) {
+    for (const champ of ['prenom', 'nom', 'ville', 'etablissement_declare', 'vehicule', 'bio']) {
       formProfil[champ].value = moi[champ] || '';
     }
+    formProfil.notif_email.checked = moi.notif_email !== false;
+    const verrou = nomVerrouille();
+    formProfil.prenom.readOnly = verrou;
+    formProfil.nom.readOnly = verrou;
+    $('#nom-verrou').hidden = !verrou;
+    // Les invitations sont réservées aux membres vérifiés par un code ou un justificatif.
+    $('#bloc-invitations').hidden = moi.methode_verif === 'invitation';
     const methodes = { code: 'code d\'établissement', justificatif: 'justificatif', invitation: 'invitation', admin: 'l\'équipe Meet Zoe' };
     $('#profil-resume').textContent = `${Zoe.CATEGORIES[moi.categorie]} · ${moi.email} · compte vérifié par ${methodes[moi.methode_verif] || 'l\'équipe Meet Zoe'}`
       + (moi.conducteur_statut === 'valide' ? ' · conducteur validé.' : '.');
@@ -841,11 +1030,11 @@
   formProfil.addEventListener('submit', (e) => {
     e.preventDefault();
     occupe(e.submitter, async () => {
+      const verrou = nomVerrouille();
       const [maj] = await req(sb.from('profils').update({
-        prenom: formProfil.prenom.value.trim(),
-        nom: formProfil.nom.value.trim(),
+        ...(verrou ? {} : { prenom: formProfil.prenom.value.trim(), nom: formProfil.nom.value.trim() }),
         ville: formProfil.ville.value.trim() || null,
-        telephone: formProfil.telephone.value.trim() || null,
+        notif_email: formProfil.notif_email.checked,
         etablissement_declare: formProfil.etablissement_declare.value.trim() || null,
         vehicule: formProfil.vehicule.value.trim() || null,
         bio: formProfil.bio.value.trim() || null,
@@ -853,6 +1042,16 @@
       moi = maj;
       $('#compte-nom').textContent = `${moi.prenom} ${moi.nom}`;
       toast('Profil enregistré.');
+    });
+  });
+
+  $('#form-mdp').addEventListener('submit', (e) => {
+    e.preventDefault();
+    occupe(e.submitter, async () => {
+      const { error } = await sb.auth.updateUser({ password: e.target.mdp.value });
+      if (error) throw error;
+      e.target.reset();
+      toast('Mot de passe changé.');
     });
   });
 
@@ -885,9 +1084,9 @@
         ${Zoe.avatar(f.prenom, f.initiale, urls[f.photo_path], 'avatar--grand')}
         <div>
           <h3>${f.prenom} ${f.initiale}.</h3>
-          <p>${Zoe.CATEGORIES[f.categorie]}${f.etablissement ? ` · ${f.etablissement}` : ''}</p>
+          <p>${Zoe.CATEGORIES[f.categorie]}${etablissementAffiche(f)}</p>
           <div class="result__tags">
-            <span class="badge badge--ok">Membre vérifié</span>
+            <span class="badge badge--ok">${Zoe.VERIFICATIONS[f.methode_verif] || 'Membre vérifié'}</span>
             ${f.conducteur_valide ? html`<span class="badge badge--ok">Permis et identité contrôlés</span>` : ''}
           </div>
         </div>
@@ -915,12 +1114,15 @@
     if (lien) { ouvrirFiche(lien.dataset.fiche).catch(Zoe.erreur); return; }
     const signaler = e.target.closest('[data-signaler]');
     if (!signaler) return;
-    const motif = prompt('Que s\'est-il passé ? Votre signalement est lu uniquement par l\'équipe Meet Zoe.');
-    if (motif === null) return;
-    occupe(signaler, async () => {
-      await req(sb.rpc('signaler_membre', { p_cible: signaler.dataset.signaler, p_motif: motif }));
+    const cible = signaler.dataset.signaler;
+    Zoe.demander({
+      titre: 'Signaler ce membre',
+      texte: 'Votre signalement est lu uniquement par l\'équipe Meet Zoe. Le membre n\'en est pas informé. En cas de danger immédiat, appelez le 17.',
+      zone: true, zoneLabel: 'Que s\'est-il passé ?', min: 10, valider: 'Envoyer le signalement',
+    }).then((reponse) => reponse && occupe(null, async () => {
+      await req(sb.rpc('signaler_membre', { p_cible: cible, p_motif: reponse.texte }));
       toast('Signalement envoyé. Merci, notre équipe va l\'examiner.');
-    });
+    }));
   });
   $('#voir-ma-fiche').addEventListener('click', () => ouvrirFiche(moi.id).catch(Zoe.erreur));
 
@@ -1005,17 +1207,4 @@
   // Inscrit comme conducteur mais pas encore validé : on commence par les documents.
   if (moi.souhaite_conduire && ['non', 'refuse'].includes(moi.conducteur_statut)) montrer('proposer');
 
-  $('#supprimer-compte').addEventListener('click', (e) => {
-    if (!confirm('Supprimer définitivement votre compte et toutes vos données ?')) return;
-    occupe(e.currentTarget, async () => {
-      // Efface d'abord les fichiers éventuellement déposés.
-      for (const dossier of ['justificatifs', 'documents-conducteur', 'photos']) {
-        const { data: fichiers } = await sb.storage.from(dossier).list(moi.id);
-        if (fichiers && fichiers.length) await sb.storage.from(dossier).remove(fichiers.map((f) => `${moi.id}/${f.name}`));
-      }
-      await req(sb.rpc('supprimer_mon_compte'));
-      await sb.auth.signOut();
-      location.href = 'index.html';
-    });
-  });
 })();

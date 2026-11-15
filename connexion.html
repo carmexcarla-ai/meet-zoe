@@ -6,6 +6,7 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co https://geo.api.gouv.fr https://data.geopf.fr; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Connexion — Meet Zoe</title>
+  <meta name="robots" content="noindex">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Meet Zoe">
   <meta property="og:locale" content="fr_FR">
@@ -38,12 +39,12 @@
       <span class="logo__text">meet <b>zoe</b></span>
     </a>
 
-    <p class="auth__rappel">Le covoiturage réservé aux étudiants en santé et aux soignants. Gratuit pendant le lancement.</p>
+    <p class="auth__rappel">Le covoiturage réservé aux étudiants en santé et aux soignants. L'inscription est gratuite.</p>
 
     <div class="auth__carte">
       <div class="onglets" role="tablist" id="onglets">
         <button type="button" role="tab" data-onglet="connexion" aria-selected="true">Connexion</button>
-        <button type="button" role="tab" data-onglet="inscription" aria-selected="false">Créer un compte</button>
+        <button type="button" role="tab" data-onglet="inscription" aria-selected="false">Créer mon compte</button>
       </div>
 
       <!-- Connexion -->
@@ -52,11 +53,15 @@
         <label>Adresse e-mail
           <input type="email" name="email" autocomplete="email" required>
         </label>
-        <label>Mot de passe
-          <input type="password" name="mdp" autocomplete="current-password" required>
-        </label>
+        <div class="champ-mdp">
+          <label for="mdp-connexion">Mot de passe</label>
+          <div class="mdp">
+            <input type="password" id="mdp-connexion" name="mdp" autocomplete="current-password" required>
+            <button class="mdp__voir" type="button" aria-pressed="false" aria-controls="mdp-connexion" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+        </div>
         <button class="btn btn--primary" type="submit">Me connecter</button>
-        <button class="lien" type="button" id="lien-oubli">Mot de passe oublié ?</button>
+        <button class="lien" type="button" id="lien-oubli">Mot de passe oublié&nbsp;?</button>
       </form>
 
       <!-- Inscription -->
@@ -75,9 +80,13 @@
         <label>Adresse e-mail
           <input type="email" name="email" autocomplete="email" required>
         </label>
-        <label>Mot de passe <small>(8 caractères minimum)</small>
-          <input type="password" name="mdp" autocomplete="new-password" minlength="8" required>
-        </label>
+        <div class="champ-mdp">
+          <label for="mdp-inscription">Mot de passe <small>(8 caractères minimum)</small></label>
+          <div class="mdp">
+            <input type="password" id="mdp-inscription" name="mdp" autocomplete="new-password" minlength="8" required>
+            <button class="mdp__voir" type="button" aria-pressed="false" aria-controls="mdp-inscription" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+        </div>
         <label>Je suis
           <select name="categorie" required>
             <option value="">Choisir…</option>
@@ -86,9 +95,9 @@
             <option value="autre_formation">Étudiant(e) d'une autre formation sanitaire ou médico-sociale</option>
             <option value="pro_diplome">Professionnel(le) diplômé(e)</option>
             <option value="pro_non_diplome">Agent de soins, ASH ou personnel éducatif</option>
-            <option value="etablissement">Représentant(e) d'un établissement</option>
           </select>
         </label>
+        <p class="aide lien-etab"><a href="etablissements.html">Vous représentez un établissement ?</a></p>
         <label>Établissement ou institut
           <input type="text" name="etablissement" maxlength="120" placeholder="Ex. IFSI d'Évreux" required>
         </label>
@@ -118,9 +127,13 @@
       <!-- Nouveau mot de passe (après clic sur le lien reçu par e-mail) -->
       <form data-panneau="nouveau" id="form-nouveau" class="pile" hidden>
         <h1>Nouveau mot de passe</h1>
-        <label>Nouveau mot de passe <small>(8 caractères minimum)</small>
-          <input type="password" name="mdp" autocomplete="new-password" minlength="8" required>
-        </label>
+        <div class="champ-mdp">
+          <label for="mdp-nouveau">Nouveau mot de passe <small>(8 caractères minimum)</small></label>
+          <div class="mdp">
+            <input type="password" id="mdp-nouveau" name="mdp" autocomplete="new-password" minlength="8" required>
+            <button class="mdp__voir" type="button" aria-pressed="false" aria-controls="mdp-nouveau" aria-label="Afficher le mot de passe">Afficher</button>
+          </div>
+        </div>
         <button class="btn btn--primary" type="submit">Enregistrer</button>
       </form>
 
@@ -135,7 +148,7 @@
         <button class="lien" type="button" id="renvoyer-code">Renvoyer un code</button>
       </form>
     </div>
-    <p class="auth__pied"><a href="index.html">← Retour au site</a> · <a href="contact.html">Besoin d'aide ? Nous contacter</a></p>
+    <p class="auth__pied"><a href="index.html">← Retour au site</a> <span class="sep">·</span> <a href="contact.html">Besoin d'aide&nbsp;? Nous contacter</a></p>
   </main>
 
   <script src="vendor/supabase.js?v=15"></script>

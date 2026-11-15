@@ -39,19 +39,22 @@
     <p class="eyebrow">Administration</p>
     <nav class="onglets onglets--page" role="tablist" id="onglets" aria-label="Administration">
       <button type="button" role="tab" data-onglet="bord" aria-selected="true">Tableau de bord</button>
-      <button type="button" role="tab" data-onglet="membres" aria-selected="false">Membres</button>
+      <button type="button" role="tab" data-onglet="membres" aria-selected="false">Membres <span class="pastille" id="pastille-membres" hidden></span></button>
       <button type="button" role="tab" data-onglet="etablissements" aria-selected="false">Établissements</button>
       <button type="button" role="tab" data-onglet="moderation" aria-selected="false">Modération <span class="pastille" id="pastille-moderation" hidden></span></button>
-      <button type="button" role="tab" data-onglet="contacts" aria-selected="false">Demandes de contact</button>
+      <button type="button" role="tab" data-onglet="contacts" aria-selected="false">Demandes de contact <span class="pastille" id="pastille-contacts" hidden></span></button>
       <button type="button" role="tab" data-onglet="journal" aria-selected="false">Journal</button>
     </nav>
 
-    <!-- Membres -->
     <!-- Tableau de bord -->
     <section data-panneau="bord">
       <div class="barre">
         <h1>Tableau de bord</h1>
         <button class="lien" type="button" id="bord-actualiser">Actualiser</button>
+      </div>
+      <div class="a-faire">
+        <h2>À faire</h2>
+        <ul class="bord-liste" id="a-faire-liste"></ul>
       </div>
       <div class="chiffres chiffres--6" id="bord-chiffres"></div>
 
@@ -77,20 +80,29 @@
       </div>
     </section>
 
+    <!-- Membres -->
     <section data-panneau="membres" hidden>
       <div class="barre">
         <h1>Membres</h1>
-        <label class="filtre">Afficher
-          <select id="filtre-statut">
-            <option value="en_attente">En attente de vérification</option>
-            <option value="conducteurs">Conducteurs à valider</option>
-            <option value="verifie">Vérifiés</option>
-            <option value="refuse">Refusés</option>
-            <option value="suspendu">Suspendus</option>
-            <option value="">Tous</option>
-          </select>
-        </label>
+        <div class="filtres">
+          <label class="filtre">Afficher
+            <select id="filtre-statut">
+              <option value="a_controler">À contrôler</option>
+              <option value="justificatifs">Justificatifs à examiner</option>
+              <option value="conducteurs">Conducteurs à contrôler</option>
+              <option value="en_attente">En attente de vérification</option>
+              <option value="verifie">Vérifiés</option>
+              <option value="refuse">Refusés</option>
+              <option value="suspendu">Suspendus</option>
+              <option value="">Tous</option>
+            </select>
+          </label>
+          <label class="filtre">Rechercher
+            <input type="text" id="recherche-membre" placeholder="Nom, prénom ou e-mail" autocomplete="off">
+          </label>
+        </div>
       </div>
+      <p class="aide" id="membres-note" aria-live="polite"></p>
       <div class="tableau-zone">
         <table class="tableau">
           <thead><tr><th>Membre</th><th>Profil</th><th>Vérification</th><th>Statut</th><th>Rôle</th><th></th></tr></thead>
@@ -180,6 +192,38 @@
           <thead><tr><th>Date</th><th>Par</th><th>Action</th><th>Concerne</th></tr></thead>
           <tbody id="journal"></tbody>
         </table>
+      </div>
+
+      <h2 class="entretien-titre">Entretien</h2>
+      <div class="liste">
+        <article class="element">
+          <div class="element__tete">
+            <div>
+              <strong>Fichiers à nettoyer : <span id="orphelins-nb">…</span></strong>
+              <p>Des fichiers (justificatifs, documents de conducteur, photos) restés dans le stockage sans être rattachés à un dossier en cours, par exemple après un envoi interrompu.</p>
+            </div>
+            <div class="element__actions">
+              <button class="btn btn--primary btn--sm" type="button" id="orphelins-nettoyer" hidden>Nettoyer</button>
+            </div>
+          </div>
+        </article>
+        <article class="element">
+          <div class="element__tete">
+            <div>
+              <strong>Pannes signalées par le site</strong>
+              <p>Les 30 dernières erreurs techniques rencontrées par les visiteurs. Utile pour les transmettre à la personne qui s'occupe du site.</p>
+            </div>
+            <div class="element__actions">
+              <button class="lien lien--danger" type="button" id="pannes-vider" hidden>Vider la liste</button>
+            </div>
+          </div>
+          <div class="tableau-zone">
+            <table class="tableau tableau--pannes">
+              <thead><tr><th>Date</th><th>Page</th><th>Message</th></tr></thead>
+              <tbody id="pannes"></tbody>
+            </table>
+          </div>
+        </article>
       </div>
     </section>
 

@@ -41,15 +41,20 @@ claire (« on peut pas faire mieux ? », « fais ce qui est mieux », etc.).
 
 ## À chaque publication
 
+- Si `supabase/schema.sql` a changé : augmenter `version_base()` dans ce
+  fichier et `VERSION_BASE` dans `js/commun.js`, faire recoller le script par
+  le propriétaire AVANT de publier le site (l'administration affiche un
+  bandeau tant que la base n'est pas à jour).
 - Augmenter d'une unité le numéro de version `?v=…` placé après les fichiers
-  CSS et JavaScript dans toutes les pages HTML. Sans cela, le navigateur des
+  CSS et JavaScript dans toutes les pages HTML (`sh outils/version.sh`). Sans cela, le navigateur des
   visiteurs peut garder l'ancienne version des scripts avec la nouvelle page,
   et des boutons cessent de fonctionner.
 
 ## Avant de dire que c'est fini
 
 - Tester le parcours complet sur une copie locale de Supabase, y compris les
-  tentatives de contournement.
+  tentatives de contournement : lancer `node tests/e2e.js` (mode d'emploi dans
+  `tests/README.md`) et ajouter une vérification pour chaque nouveauté.
 - Vérifier l'affichage à 360, 390, 768 et 1280 px.
 - Dire ce qui n'a pas pu être testé.
 

@@ -10,11 +10,13 @@ const menu = document.getElementById('menu');
 burger.addEventListener('click', () => {
   const ouvert = menu.classList.toggle('open');
   burger.setAttribute('aria-expanded', ouvert);
+  burger.setAttribute('aria-label', ouvert ? 'Fermer le menu' : 'Ouvrir le menu');
 });
 menu.addEventListener('click', (e) => {
   if (e.target.tagName === 'A') {
     menu.classList.remove('open');
     burger.setAttribute('aria-expanded', false);
+    burger.setAttribute('aria-label', 'Ouvrir le menu');
   }
 });
 
