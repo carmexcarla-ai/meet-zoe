@@ -8,7 +8,8 @@
   const moi = await Zoe.exigerProfil();
   if (!moi) return;
   if (moi.statut !== 'verifie' || moi.role !== 'partenaire' || !moi.etablissement_id) {
-    location.replace(Zoe.pageAccueil(moi));
+    // Partenaire dont l'établissement a été supprimé : retour à l'espace membre (et non une boucle sur cette page).
+    location.replace(moi.statut === 'verifie' && moi.role === 'partenaire' ? 'espace.html' : Zoe.pageAccueil(moi));
     return;
   }
 
@@ -36,6 +37,11 @@
       <div class="chiffre"><span>${s.places_partagees}</span><p>Places partagées</p></div>`;
   }
 
+  // Un code désactivé, expiré ou complet ne permet plus de s'inscrire.
+  const etatCode = (c) => (!c.actif ? 'Désactivé'
+    : c.expire_le && c.expire_le < Zoe.aujourdhui() ? 'Expiré'
+      : c.max_utilisations && c.utilisations >= c.max_utilisations ? 'Complet' : 'Actif');
+
   async function chargerCodes() {
     const codes = await req(sb.from('codes_acces').select('*').order('created_at', { ascending: false }));
     $('#codes').innerHTML = codes.length
@@ -45,9 +51,9 @@
           <td>${c.libelle || '—'}</td>
           <td>${c.utilisations}${c.max_utilisations ? ` / ${c.max_utilisations}` : ''}</td>
           <td>${c.expire_le ? Zoe.date(c.expire_le) : 'Sans limite'}</td>
-          <td><span class="badge ${c.actif ? 'badge--acceptee' : 'badge--annulee'}">${c.actif ? 'Actif' : 'Désactivé'}</span></td>
+          <td><span class="badge ${etatCode(c) === 'Actif' ? 'badge--acceptee' : 'badge--annulee'}">${etatCode(c)}</span></td>
           <td class="tableau__actions">
-            <button class="lien" type="button" data-action="partager">Lien et QR code</button>
+            ${etatCode(c) === 'Actif' ? html`<button class="lien" type="button" data-action="partager">Lien et QR code</button>` : ''}
             <button class="lien" type="button" data-action="copier">Copier</button>
             <button class="lien" type="button" data-action="basculer">${c.actif ? 'Désactiver' : 'Réactiver'}</button>
             <button class="lien lien--danger" type="button" data-action="supprimer">Supprimer</button>

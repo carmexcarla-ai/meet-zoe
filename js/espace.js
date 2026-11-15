@@ -760,7 +760,7 @@
       remplirFormTrajet(trajet);
       modeTrajet(action === 'modifier' ? idTrajet : null);
       montrer('proposer');
-      formTrajet.scrollIntoView({ block: 'start' });
+      $('#titre-proposer').scrollIntoView({ block: 'start' });
       if (action === 'dupliquer' && trajet.date_fin < Zoe.aujourdhui()) {
         tRaccourcis.duree('28');
         toast('Trajet copié pour les 4 prochaines semaines : vérifiez les dates, les jours et les horaires, puis publiez.');

@@ -22,11 +22,13 @@
   /* ---------- Version de la base ---------- */
   // Si la base n'a pas reçu la dernière version du script SQL, on le dit tout de suite.
   async function verifierVersion() {
-    let aJour = false;
+    let aJour = true;
     try {
       const { data, error } = await sb.rpc('version_base');
-      aJour = !error && Number(data) >= Zoe.VERSION_BASE;
-    } catch { /* traité comme une base qui n'est pas à jour */ }
+      const absente = error && ['PGRST202', '42883'].includes(error.code);
+      // Une simple coupure de réseau n'affiche pas le bandeau.
+      aJour = !absente && (error ? true : Number(data) >= Zoe.VERSION_BASE);
+    } catch { /* coupure de réseau : rien à signaler ici */ }
     if (aJour || $('#alerte-version')) return;
     document.body.insertAdjacentHTML('afterbegin',
       '<div class="alerte alerte--config" id="alerte-version" role="alert"><strong>La base de données n\'est pas à jour.</strong> '
@@ -56,13 +58,25 @@
   // Question « pourquoi ? » : une liste de motifs courts et une précision facultative.
   // Renvoie null si la personne annule, sinon le motif à montrer au membre.
   async function demanderMotif({ titre, texte, motifs, valider }) {
-    for (;;) {
-      const r = await Zoe.demander({ titre, texte, choix: motifs, zone: true, zoneLabel: 'Précision (facultatif)', valider, danger: true });
-      if (!r) return null;
-      if (r.choix === 'Autre' && !r.texte) { toast('Pour le motif « Autre », écrivez une précision.', 'err'); continue; }
-      if (r.choix === 'Autre') return r.texte;
-      return r.texte ? `${r.choix} : ${r.texte}` : r.choix;
-    }
+    const net = (t) => t.replace(/[.\s]+$/, '');   // pas de point final : la phrase affichée en ajoute un
+    const r = await Zoe.demander({
+      titre, texte, choix: motifs, zone: true, zoneLabel: 'Précision (facultatif)', valider, danger: true, max: 120,
+      verifier: (x) => (x.choix === 'Autre' && !net(x.texte) ? 'Pour le motif « Autre », écrivez une précision.' : ''),
+    });
+    if (!r) return null;
+    const precision = net(r.texte);
+    if (r.choix === 'Autre') return precision;
+    return precision ? `${r.choix} : ${precision}` : r.choix;
+  }
+  // Décision enregistrée après l'effacement des fichiers : si elle échoue, on dit quoi faire.
+  async function decider(appel) {
+    const { error } = await appel;
+    if (!error) return;
+    console.error(error);
+    const message = Zoe.messageErreur(error);
+    throw new Error(/^Une erreur est survenue|^Connexion impossible/.test(message)
+      ? 'Le document est effacé mais la décision n\'a pas été enregistrée : cliquez de nouveau sur le même bouton.'
+      : message);
   }
   // Efface les fichiers d'un membre et vérifie qu'il n'en reste aucun.
   // En cas d'échec, rien ne doit être enregistré ensuite.
@@ -108,6 +122,8 @@
         <li><b>${libelle}</b><button class="lien" type="button" data-aller="${onglet}" data-filtre="${filtre}">Ouvrir</button></li>`)}`
       : html`<li class="aide">Rien n'attend.</li>`;
   }
+  // Rappel sur le tableau de bord si la clé du service d'e-mails n'est pas enregistrée.
+  sb.rpc('etat_emails').then(({ data }) => { if (data) $('#a-faire-emails').hidden = data.cle; }, () => {});
   // Après une action, les compteurs sont recalculés sans bloquer la suite.
   const majAttente = () => chargerAttente().catch((e) => console.error(e));
 
@@ -187,10 +203,10 @@
             <button class="lien" type="button" data-action="role">Appliquer</button>`}</td>
           <td class="tableau__actions">${m.id === moi.id ? '' : html`
             ${m.statut !== 'verifie' ? html`<button class="btn btn--green btn--sm" type="button" data-action="verifie">${m.statut === 'suspendu' ? 'Réactiver' : 'Valider'}</button>` : ''}
-            ${m.statut === 'en_attente' ? html`<button class="lien lien--danger" type="button" data-action="refuse">Refuser</button>` : ''}
+            ${m.statut === 'en_attente' && m.justificatif_path ? html`<button class="lien lien--danger" type="button" data-action="refuse">Refuser</button>` : ''}
             ${m.statut === 'verifie' ? html`<button class="lien lien--danger" type="button" data-action="suspendu">Suspendre</button>` : ''}`}</td>
         </tr>`)}`
-      : html`<tr><td colspan="6" class="aide">${mots.length && membres.length ? 'Aucun membre ne correspond à cette recherche.' : 'Aucun membre dans cette liste.'}</td></tr>`;
+      : html`<tr><td colspan="6" class="aide">${!mots.length ? 'Aucun membre dans cette liste.' : $('#filtre-statut').value !== '' ? 'Aucun membre ne correspond dans cette liste. Pour chercher parmi tous les membres, choisissez « Tous » dans « Afficher ».' : 'Aucun membre ne correspond à cette recherche.'}</td></tr>`;
   }
 
   $('#filtre-statut').addEventListener('change', () => chargerMembres().catch(Zoe.erreur));
@@ -238,7 +254,7 @@
         // Le contrôle est fait : on efface d'abord le permis et la pièce d'identité,
         // on vérifie qu'il n'en reste rien, puis seulement on enregistre la décision.
         await effacerFichiers('documents-conducteur', membre.id, 'L\'effacement des documents');
-        await req(sb.rpc('admin_valider_conducteur', { p_membre: membre.id, p_valider: valider, p_motif: motif }));
+        await decider(sb.rpc('admin_valider_conducteur', { p_membre: membre.id, p_valider: valider, p_motif: motif }));
         toast(valider ? 'Conducteur validé. Documents effacés.' : 'Conducteur refusé. Documents effacés.');
         await chargerMembres();
         majAttente();
@@ -291,7 +307,7 @@
         // on l'efface d'abord, on vérifie, puis seulement on enregistre la décision.
         const effacer = ['verifie', 'refuse'].includes(action);
         if (effacer) await effacerFichiers('justificatifs', membre.id, 'L\'effacement du justificatif');
-        await req(sb.rpc('admin_definir_statut', { p_membre: membre.id, p_statut: action, p_motif: motif }));
+        await decider(sb.rpc('admin_definir_statut', { p_membre: membre.id, p_statut: action, p_motif: motif }));
         toast({ verifie: 'Membre vérifié.', refuse: 'Demande refusée.', suspendu: 'Membre suspendu.' }[action] + (effacer && membre.justificatif_path ? ' Justificatif effacé.' : ''));
       }
       await chargerMembres();
@@ -327,11 +343,15 @@
       : html`<tr><td colspan="5" class="aide">Aucun établissement. Ajoutez le premier ci-dessus.</td></tr>`;
   }
 
+  // Un code désactivé, expiré ou complet ne permet plus de s'inscrire.
+  const etatCode = (c) => (!c.actif ? 'Désactivé'
+    : c.expire_le && c.expire_le < Zoe.aujourdhui() ? 'Expiré'
+      : c.max_utilisations && c.utilisations >= c.max_utilisations ? 'Complet' : 'Actif');
+
   function viderFormEtab() {
     formEtab.reset();
     formEtab.etab_id.value = '';
-    delete champVille.dataset.lat;
-    delete champVille.dataset.lng;
+    for (const cle of ['lat', 'lng', 'ville', 'precis']) delete champVille.dataset[cle];
     $('#form-etab-titre').textContent = 'Ajouter un établissement';
     $('#etab-annuler').hidden = true;
   }
@@ -371,6 +391,8 @@
       champVille.value = etab.ville;
       champVille.dataset.lat = etab.lat;
       champVille.dataset.lng = etab.lng;
+      champVille.dataset.ville = etab.ville;
+      delete champVille.dataset.precis;
       $('#form-etab-titre').textContent = `Modifier ${etab.nom}`;
       $('#etab-annuler').hidden = false;
       formEtab.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -382,7 +404,7 @@
     occupe(bouton, async () => {
       const accord = await Zoe.demander({
         titre: `Supprimer ${etab.nom} ?`,
-        texte: 'Ses codes d\'accès seront supprimés aussi. Les membres déjà vérifiés conservent leur compte.',
+        texte: 'Ses codes d\'accès seront supprimés aussi. Les membres déjà vérifiés conservent leur compte. Le compte partenaire qui le gère n\'aura plus accès à son espace partenaire.',
         valider: 'Supprimer', danger: true,
       });
       if (!accord) return;
@@ -402,10 +424,10 @@
     $('#codes-liste').innerHTML = codes.length
       ? html`${codes.map((c) => html`
         <li data-code="${c.code}" data-id="${c.id}" data-actif="${c.actif}">
-          <div><code>${c.code}</code> <span class="badge ${c.actif ? 'badge--acceptee' : 'badge--annulee'}">${c.actif ? 'Actif' : 'Désactivé'}</span>
+          <div><code>${c.code}</code> <span class="badge ${etatCode(c) === 'Actif' ? 'badge--acceptee' : 'badge--annulee'}">${etatCode(c)}</span>
             <small>${c.libelle || 'Sans nom'} · ${pluriel(c.utilisations, 'inscription', 'inscriptions')}${c.actif ? '' : ' · ce code ne permet plus de s\'inscrire'}</small></div>
           <div class="element__actions">
-            ${c.actif ? html`<button class="btn btn--ghost btn--sm" type="button" data-action="partager">Lien et QR code</button>` : ''}
+            ${etatCode(c) === 'Actif' ? html`<button class="btn btn--ghost btn--sm" type="button" data-action="partager">Lien et QR code</button>` : ''}
             <button class="lien ${c.actif ? 'lien--danger' : ''}" type="button" data-action="basculer">${c.actif ? 'Désactiver' : 'Réactiver'}</button>
           </div>
         </li>`)}`
@@ -589,6 +611,21 @@
     return fichiers;
   }
 
+  // Les e-mails d'alerte partent-ils ? (clé enregistrée, envois en échec depuis 24 heures)
+  async function chargerEtatEmails() {
+    const zone = $('#etat-emails');
+    const { data, error } = await sb.rpc('etat_emails');
+    if (error || !data) { zone.textContent = 'État inconnu.'; zone.className = 'aide'; return; }
+    zone.className = data.cle && !data.echecs ? 'aide' : 'alerte alerte--err';
+    zone.textContent = !data.cle
+      ? 'Clé du service d\'e-mails absente : les alertes s\'affichent sur le site, mais aucun e-mail ne part. Voir le fichier README, section « Alertes par e-mail ».'
+      : data.echecs
+        ? `${pluriel(data.echecs, 'envoi en échec', 'envois en échec')} depuis 24 h sur ${data.envois}. Vérifiez la clé et l'expéditeur dans Brevo.`
+        : `Actifs : ${pluriel(data.envois, 'e-mail envoyé', 'e-mails envoyés')} depuis 24 h.`;
+    const rappel = $('#a-faire-emails');
+    if (rappel) rappel.hidden = data.cle;
+  }
+
   async function chargerPannes() {
     const pannes = await req(sb.from('erreurs_client').select('id, page, message, created_at').order('created_at', { ascending: false }).limit(30));
     $('#pannes').innerHTML = pannes.length
@@ -614,7 +651,7 @@
     }
     const restants = await chargerOrphelins();
     if (effaces < fichiers.length) {
-      throw new Error(`Seuls ${effaces} fichiers sur ${fichiers.length} ont pu être effacés. Réessayez dans un instant.`);
+      throw new Error(`Effacement incomplet : ${effaces} sur ${fichiers.length}. Réessayez dans un instant.`);
     }
     toast(restants.length
       ? `${pluriel(effaces, 'fichier effacé', 'fichiers effacés')}. Il en reste : cliquez de nouveau sur « Nettoyer ».`
@@ -631,7 +668,7 @@
 
   async function chargerJournalEtEntretien() {
     // Chaque bloc se charge séparément : une panne sur l'un n'empêche pas les autres.
-    const resultats = await Promise.allSettled([chargerJournal(), chargerOrphelins(), chargerPannes()]);
+    const resultats = await Promise.allSettled([chargerJournal(), chargerOrphelins(), chargerPannes(), chargerEtatEmails()]);
     const echec = resultats.find((r) => r.status === 'rejected');
     if (echec) throw echec.reason;
   }

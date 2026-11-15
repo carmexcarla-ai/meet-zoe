@@ -569,7 +569,7 @@ const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
     await A.locator('#mes-trajets .element', { hasText: 'retour 22:00' }).locator('[data-action=pause]').click(); await A.waitForSelector('.toast:has-text("pause")');
     check('pause: le passager est prévenu', nb(`membre_id='${idHugo}' and titre like '%a mis son trajet en pause'`) === 1);
     const H = await ouvrir(); await connecter(H, 'Hugo'); await H.waitForSelector('#espace:not([hidden])'); await H.click('[data-onglet=reservations]'); await H.waitForSelector('#mes-reservations .element');
-    check('pause: visible dans « Mes réservations » du passager', /En pause/.test(await H.locator('#mes-reservations').textContent()) && /mis ce trajet en pause/.test(await H.locator('#mes-reservations').textContent()));
+    check('pause: visible dans « Mes réservations » du passager', /En pause/.test(await H.locator('#mes-reservations').textContent()) && /Ce trajet est en pause/.test(await H.locator('#mes-reservations').textContent()));
     await A.locator('#mes-trajets .element', { hasText: 'retour 22:00' }).locator('[data-action=supprimer]').click();
     const question = A.locator('dialog.question[open]'); await question.waitFor();
     check('supprimer: la fenêtre prévient qu\'un membre a une demande et propose la pause', /1 membre a une demande ou une place/.test(await question.textContent()) && /Mettre en pause/.test(await question.textContent()));

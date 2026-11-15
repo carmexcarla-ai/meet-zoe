@@ -1024,3 +1024,7 @@ label small { font-size: 1em; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .verification__pied { margin-top: 28px; text-align: center; }
+#form-trajet, #titre-proposer { scroll-margin-top: 110px; }
+[data-panneau="journal"] .liste { grid-template-columns: minmax(0, 1fr); }
+[data-panneau="journal"] .element { min-width: 0; max-width: 100%; }
+[data-panneau="journal"] .carte-form { margin-top: 14px; }

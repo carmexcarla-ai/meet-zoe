@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body class="page-app">
   <header class="header">
@@ -55,6 +55,7 @@
       <div class="a-faire">
         <h2>À faire</h2>
         <ul class="bord-liste" id="a-faire-liste"></ul>
+        <p class="alerte alerte--err" id="a-faire-emails" hidden>Les e-mails d'alerte ne sont pas activés : les membres ne sont prévenus que sur le site. Voir l'onglet « Journal », bloc « Entretien ».</p>
       </div>
       <div class="chiffres chiffres--6" id="bord-chiffres"></div>
 
@@ -195,6 +196,10 @@
       </div>
 
       <h2 class="entretien-titre">Entretien</h2>
+      <div class="carte-form">
+        <h3 class="sous-titre">E-mails d'alerte</h3>
+        <p class="aide" id="etat-emails">Chargement…</p>
+      </div>
       <div class="liste">
         <article class="element">
           <div class="element__tete">
@@ -252,10 +257,10 @@
     </div>
   </dialog>
 
-  <script src="vendor/qrcode.js?v=15"></script>
-  <script src="vendor/supabase.js?v=15"></script>
-  <script src="config.js?v=15"></script>
-  <script src="js/commun.js?v=15"></script>
-  <script src="js/admin.js?v=15"></script>
+  <script src="vendor/qrcode.js?v=16"></script>
+  <script src="vendor/supabase.js?v=16"></script>
+  <script src="config.js?v=16"></script>
+  <script src="js/commun.js?v=16"></script>
+  <script src="js/admin.js?v=16"></script>
 </body>
 </html>
